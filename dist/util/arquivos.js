@@ -2,6 +2,7 @@ import { writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { falhar } from './comum.js';
+import { enviarNuvem, apagarNuvem } from './nuvem.js';
 const TIPOS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
 /**
  * Descobre o tipo real pelo conteúdo (assinatura do arquivo), sem confiar no
@@ -38,12 +39,14 @@ export async function salvarDataUrl(pasta, prefixo, dataUrl, op = {}) {
     await mkdir(pasta, { recursive: true });
     const arquivo = `${prefixo}-${randomBytes(8).toString('hex')}.${ext}`;
     await writeFile(join(pasta, arquivo), buf);
+    await enviarNuvem(join(pasta, arquivo), buf);
     return { arquivo, tipo };
 }
 export async function apagarArquivo(pasta, arquivo) {
     if (!arquivo || !/^[\w.-]+$/.test(arquivo) || arquivo.startsWith('.'))
         return;
     await unlink(join(pasta, arquivo)).catch(() => undefined);
+    await apagarNuvem(join(pasta, arquivo));
 }
 /** Baixa uma imagem de uma URL (usado na importação). Falha silenciosamente. */
 export async function baixarImagem(url, pasta, prefixo) {
@@ -61,6 +64,7 @@ export async function baixarImagem(url, pasta, prefixo) {
         await mkdir(pasta, { recursive: true });
         const arquivo = `${prefixo}-${randomBytes(6).toString('hex')}.${ext}`;
         await writeFile(join(pasta, arquivo), buf);
+        await enviarNuvem(join(pasta, arquivo), buf);
         return arquivo;
     }
     catch {

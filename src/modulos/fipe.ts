@@ -32,7 +32,7 @@ export class Fipe {
     if (r.status === 429) falhar('A consulta FIPE atingiu o limite de pedidos por hoje. Tente mais tarde.', 503);
     if (!r.ok) falhar('Não encontrado na tabela FIPE.', r.status === 404 ? 404 : 502);
     const dados = await r.json();
-    this.b.run("INSERT OR REPLACE INTO fipe_cache (chave, valor, criado_em) VALUES (?, ?, datetime('now'))", [caminho, JSON.stringify(dados)]);
+    this.b.run("INSERT INTO fipe_cache (chave, valor, criado_em) VALUES (?, ?, datetime('now')) ON CONFLICT (chave) DO UPDATE SET valor = excluded.valor, criado_em = excluded.criado_em", [caminho, JSON.stringify(dados)]);
     return dados as T;
   }
 

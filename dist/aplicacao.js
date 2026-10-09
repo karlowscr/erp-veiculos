@@ -10,6 +10,7 @@ import { registrarFinanceiro } from './modulos/financeiro.js';
 import { registrarFiscal } from './modulos/fiscal.js';
 import { registrarRenave } from './modulos/renave.js';
 import { iniciarSegredo } from './util/cripto.js';
+import { configurarNuvem } from './util/nuvem.js';
 import { registrarContratos } from './modulos/contratos.js';
 import { registrarCobrancas } from './modulos/cobrancas.js';
 import { registrarCarnes } from './modulos/carnes.js';
@@ -43,7 +44,8 @@ function definirCaminhoAdmin(b, pedido) {
 export function criarAplicacao(op) {
     const pastaDados = resolve(op.pastaDados);
     iniciarSegredo(join(pastaDados, '.segredo'));
-    const banco = new Banco(op.arquivoBanco ?? join(pastaDados, 'erp.db'));
+    configurarNuvem(pastaDados);
+    const banco = new Banco(op.arquivoBanco ?? process.env.BANCO_URL ?? join(pastaDados, 'erp.db'));
     const producao = process.env.NODE_ENV === 'production' || process.env.PRODUCAO === '1';
     const app = new App({
         confiarProxy: process.env.CONFIAR_PROXY === '1',

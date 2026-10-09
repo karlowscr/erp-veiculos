@@ -218,6 +218,61 @@ async function notaFiscal(el, topo) {
         },
     });
 }
+/** Mesma ordem e identificação usadas no servidor (importacao.ts). */
+const ORDEM_IMPORTACAO = ['configuracoes', 'clientes', 'contratos', 'cobrancas', 'carnes', 'financeiro', 'veiculos', 'desconhecido'];
+function tipoCsv(conteudo) {
+    const primeira = (dividirRegistros(conteudo.replace(/^\uFEFF/, ''))[0] ?? '');
+    const sep = (primeira.match(/;/g)?.length ?? 0) > (primeira.match(/,/g)?.length ?? 0) ? ';' : ',';
+    const cab = primeira.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''));
+    const tem = (...c) => c.every((x) => cab.includes(x));
+    if (tem('key', 'value'))
+        return 'configuracoes';
+    if (tem('buyerName') || tem('contract_type'))
+        return 'contratos';
+    if (tem('paid_installments', 'due_day'))
+        return 'cobrancas';
+    if (tem('installment_value', 'client_name') && (tem('pix_key') || tem('vehicle_plate')))
+        return 'carnes';
+    if (tem('amount', 'type') && (tem('category') || tem('date')))
+        return 'financeiro';
+    if (tem('cpf', 'name'))
+        return 'clientes';
+    if (cab.some((c) => /plate|chassis|placa|chassi/i.test(c)))
+        return 'veiculos';
+    return 'desconhecido';
+}
+/** Separa os registros de um CSV respeitando quebras de linha dentro de aspas. */
+function dividirRegistros(texto) {
+    const out = [];
+    let aspas = false;
+    let inicio = 0;
+    for (let i = 0; i < texto.length; i++) {
+        const c = texto[i];
+        if (c === '"')
+            aspas = !aspas;
+        else if (c === '\n' && !aspas) {
+            const reg = texto.slice(inicio, i).replace(/\r$/, '');
+            if (reg.trim())
+                out.push(reg);
+            inicio = i + 1;
+        }
+    }
+    const resto = texto.slice(inicio).replace(/\r$/, '');
+    if (resto.trim())
+        out.push(resto);
+    return out;
+}
+/** Divide o CSV em blocos de N registros, repetindo o cabeçalho em cada bloco. */
+function dividirCsv(conteudo, n) {
+    const regs = dividirRegistros(conteudo.replace(/^\uFEFF/, ''));
+    if (regs.length <= n + 1)
+        return [conteudo];
+    const [cab, ...linhas] = regs;
+    const blocos = [];
+    for (let i = 0; i < linhas.length; i += n)
+        blocos.push([cab, ...linhas.slice(i, i + n)].join('\n'));
+    return blocos;
+}
 async function importar(el, topo) {
     montar(el, html `${topo}
   <div class="coluna-config">
@@ -241,7 +296,29 @@ async function importar(el, topo) {
         btn.textContent = 'Importando…';
         try {
             const arquivos = await Promise.all([...(input.files ?? [])].map(async (f) => ({ nome: f.name, conteudo: await f.text() })));
-            const rel = await api.post('/api/importar', { arquivos });
+            // Envia em partes (cada arquivo em blocos de linhas), na ordem certa:
+            // assim nenhum envio fica grande ou demorado demais para o servidor.
+            arquivos.sort((a, z) => ORDEM_IMPORTACAO.indexOf(tipoCsv(a.conteudo)) - ORDEM_IMPORTACAO.indexOf(tipoCsv(z.conteudo)));
+            const partes = arquivos.flatMap((a) => dividirCsv(a.conteudo, 300).map((conteudo) => ({ nome: a.nome, conteudo })));
+            const porArquivo = new Map();
+            let feitas = 0;
+            for (const parte of partes) {
+                btn.textContent = `Importando… ${Math.round((feitas / partes.length) * 100)}%`;
+                const [r] = await api.post('/api/importar', { arquivos: [parte] });
+                feitas++;
+                const atual = porArquivo.get(parte.nome);
+                if (!atual)
+                    porArquivo.set(parte.nome, r);
+                else {
+                    atual.lidos += r.lidos;
+                    atual.importados += r.importados;
+                    atual.ignorados += r.ignorados;
+                    for (const a of r.avisos)
+                        if (!atual.avisos.includes(a))
+                            atual.avisos.push(a);
+                }
+            }
+            const rel = [...porArquivo.values()];
             const nomes = { clientes: 'Clientes', contratos: 'Contratos', cobrancas: 'Cobranças', carnes: 'Carnês', financeiro: 'Financeiro', configuracoes: 'Configurações', veiculos: 'Veículos', vazio: 'Vazio', desconhecido: 'Não reconhecido' };
             $('#relatorio', el).innerHTML = html `<h3>Resultado</h3><table class="tabela compacta"><thead><tr><th>Arquivo</th><th>Conteúdo</th><th class="n">Linhas</th><th class="n">Importados</th><th class="n">Ignorados</th></tr></thead>
         <tbody>${rel.map((r) => html `<tr><td>${r.arquivo}</td><td>${nomes[r.tipo] ?? r.tipo}</td><td class="n">${r.lidos}</td><td class="n"><b>${r.importados}</b></td><td class="n">${r.ignorados}</td></tr>

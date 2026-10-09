@@ -48,7 +48,7 @@ export function registrarPessoas(app: App, b: Banco): void {
     const filtro = papel === 'cliente' ? 'AND cliente = 1' : papel === 'fornecedor' ? 'AND fornecedor = 1' : '';
     return b.all(
       `SELECT id, tipo, cpf_cnpj, nome, telefone, email, logradouro, municipio, uf, cliente, fornecedor FROM pessoas
-       WHERE (nome LIKE ? OR cpf_cnpj LIKE ? OR telefone LIKE ?) ${filtro} ORDER BY nome COLLATE NOCASE LIMIT 1000`,
+       WHERE (nome LIKE ? OR cpf_cnpj LIKE ? OR telefone LIKE ?) ${filtro} ORDER BY lower(nome) LIMIT 1000`,
       [q, `%${limparDoc(req.query.get('q') ?? '')}%`, q]);
   });
 

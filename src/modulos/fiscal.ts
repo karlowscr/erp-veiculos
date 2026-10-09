@@ -16,6 +16,7 @@ import { pendenciasEnderecoNFe } from './pessoas.js';
 import { auditar } from './auth.js';
 import { cifrar, decifrar } from '../util/cripto.js';
 import { salvarDataUrl, apagarArquivo } from '../util/arquivos.js';
+import { enviarNuvem } from '../util/nuvem.js';
 
 export interface ConfigFiscal {
   pastaCertificados: string;
@@ -301,7 +302,7 @@ export function registrarFiscal(app: App, b: Banco, cfg: ConfigFiscal): void {
   });
 
   // Upload do certificado A1 (.pfx em base64)
-  app.post('/api/empresa/certificado', (req) => {
+  app.post('/api/empresa/certificado', async (req) => {
     const b64 = String(req.corpo.arquivo ?? '').replace(/^data:[^,]*,/, '');
     const senha = String(req.corpo.senha ?? '');
     if (!b64) falhar('Selecione o arquivo do certificado (.pfx ou .p12).');
@@ -318,6 +319,7 @@ export function registrarFiscal(app: App, b: Banco, cfg: ConfigFiscal): void {
     const destino = join(cfg.pastaCertificados, 'empresa.pfx');
     writeFileSync(destino, Buffer.from(b64, 'base64'), { mode: 0o600 });
     chmodSync(destino, 0o600);
+    await enviarNuvem(destino);
     limparCacheCertificado();
     b.atualizar('empresa', 1, { cert_arquivo: destino, cert_senha: cifrar(senha), cert_validade: cert!.validoAte.toISOString(), cert_titular: cert!.titular });
     auditar(b, req.usuario!.id, 'certificado', 'empresa', 1, { titular: cert!.titular });

@@ -1,4 +1,5 @@
 import { readFile, stat } from 'node:fs/promises';
+import { trazerDaNuvem } from '../util/nuvem.js';
 import { join, extname } from 'node:path';
 import { Limitador } from '../http/app.js';
 import { esc, moeda, telFmt, nomeLoja, enderecoLoja, urlLogo } from '../impressao/base.js';
@@ -174,7 +175,7 @@ async function inicio(ctx, req, e) {
     }
     const marca = String(q.get('marca') ?? '').slice(0, 40);
     if (marca) {
-        where.push('v.marca = ? COLLATE NOCASE');
+        where.push('upper(v.marca) = upper(?)');
         p.push(marca);
     }
     const tipo = q.get('tipo') ?? '';
@@ -202,8 +203,8 @@ async function inicio(ctx, req, e) {
     const filtrando = !!(busca || marca || tipo || faixa || salvos);
     const total = ctx.b.one(`SELECT COUNT(*) AS q FROM veiculos v WHERE ${where.join(' AND ')}`, p).q;
     const lista = ctx.b.all(`SELECT ${COLUNAS_CARTAO} FROM veiculos v WHERE ${where.join(' AND ')} ORDER BY ${ordens[ordem]} LIMIT ? OFFSET ?`, [...p, POR_PAGINA, (pagina - 1) * POR_PAGINA]);
-    const todos = ctx.b.one(`SELECT COUNT(*) AS q, SUM(v.tipo = 'moto') AS motos, SUM(v.tipo <> 'moto') AS carros FROM veiculos v WHERE ${SITUACAO_PUBLICA}`) ?? {};
-    const marcas = ctx.b.all(`SELECT v.marca, COUNT(*) AS q FROM veiculos v WHERE ${SITUACAO_PUBLICA} GROUP BY upper(v.marca) ORDER BY v.marca`);
+    const todos = ctx.b.one(`SELECT COUNT(*) AS q, SUM(CASE WHEN v.tipo = 'moto' THEN 1 ELSE 0 END) AS motos, SUM(CASE WHEN v.tipo <> 'moto' THEN 1 ELSE 0 END) AS carros FROM veiculos v WHERE ${SITUACAO_PUBLICA}`) ?? {};
+    const marcas = ctx.b.all(`SELECT MIN(v.marca) AS marca, COUNT(*) AS q FROM veiculos v WHERE ${SITUACAO_PUBLICA} GROUP BY upper(v.marca) ORDER BY MIN(v.marca)`);
     // Destaque da capa: o marcado como destaque, senão o que chegou por último
     const capa = !filtrando && pagina === 1 ? ctx.b.one(`SELECT ${COLUNAS_CARTAO}, v.descricao_catalogo, v.cor FROM veiculos v WHERE ${SITUACAO_PUBLICA} AND EXISTS (SELECT 1 FROM veiculo_fotos f WHERE f.veiculo_id = v.id) ORDER BY v.destaque DESC, v.data_entrada DESC, v.id DESC LIMIT 1`) : undefined;
     const loja = nomeLoja(e);
@@ -408,6 +409,7 @@ async function enviarArquivo(res, arquivo, cache) {
     if (!tipo)
         return false;
     try {
+        await trazerDaNuvem(arquivo);
         const s = await stat(arquivo);
         if (!s.isFile())
             return false;

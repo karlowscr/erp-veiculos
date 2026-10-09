@@ -169,7 +169,7 @@ export function registrarFinanceiro(app: App, b: Banco): void {
         `SELECT substr(data,1,7) AS mes, COUNT(*) AS qtd, SUM(valor_final) AS valor FROM negociacoes
          WHERE tipo='venda' AND status='concluida' AND data >= date('now','start of month','-11 months') GROUP BY mes ORDER BY mes`),
       parados: b.all(
-        `SELECT id, marca, modelo, placa, ano_mod, preco_venda, CAST(julianday('now') - julianday(data_entrada) AS INTEGER) AS dias
+        `SELECT id, marca, modelo, placa, ano_mod, preco_venda, CAST(julianday(date('now')) - julianday(date(data_entrada)) AS INTEGER) AS dias
          FROM veiculos WHERE situacao IN ('estoque','reservado') ORDER BY data_entrada LIMIT 5`),
     };
     // Cada um só vê no painel o que tem permissão de ver

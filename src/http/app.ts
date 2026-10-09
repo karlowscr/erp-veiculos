@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { TLSSocket } from 'node:tls';
 import { ErroNegocio } from '../util/comum.js';
 import { regraDaRota, autorizado } from './permissoes.js';
+import { trazerDaNuvem } from '../util/nuvem.js';
 
 export interface Usuario {
   id: number;
@@ -255,6 +256,7 @@ export class App {
       const arquivo = resolve(raiz, '.' + sep + (rel === '' || rel === '.' || rel === sep ? 'index.html' : rel));
       if (arquivo !== raiz && !arquivo.startsWith(raiz + sep)) return enviarJson(res, 404, { erro: 'Não encontrado.' });
       try {
+        if (p.protegida) await trazerDaNuvem(arquivo);
         const s = await stat(arquivo);
         if (s.isFile()) {
           res.writeHead(200, {

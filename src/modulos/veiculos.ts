@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { Limitador, type App, type Usuario } from '../http/app.js';
 import { tem } from '../http/permissoes.js';
 import { lerDataUrl } from '../util/arquivos.js';
+import { enviarNuvem, apagarNuvem, trazerDaNuvem } from '../util/nuvem.js';
 import { Fipe, atualizarFipeVeiculo, registrarFipe } from './fipe.js';
 import { lerDocumentoVeiculo, leituraDisponivel } from './leitor-documento.js';
 import { comprar, consignar, inserirVeiculo } from './negociacoes.js';
@@ -170,8 +171,14 @@ export function registrarVeiculos(app: App, b: Banco, op: OpcoesVeiculos): void 
       b.run('DELETE FROM negociacoes WHERE veiculo_id = ? OR troca_veiculo_id = ?', [id, id]);
       b.run('DELETE FROM veiculos WHERE id = ?', [id]);
     });
-    for (const f of fotos) await unlink(join(pastaFotos, f.arquivo)).catch(() => undefined);
-    if (v.documento_arquivo && NOME_DOC.test(v.documento_arquivo)) await unlink(join(pastaDocs, v.documento_arquivo)).catch(() => undefined);
+    for (const f of fotos) {
+      await unlink(join(pastaFotos, f.arquivo)).catch(() => undefined);
+      await apagarNuvem(join(pastaFotos, f.arquivo));
+    }
+    if (v.documento_arquivo && NOME_DOC.test(v.documento_arquivo)) {
+      await unlink(join(pastaDocs, v.documento_arquivo)).catch(() => undefined);
+      await apagarNuvem(join(pastaDocs, v.documento_arquivo));
+    }
     auditar(b, req.usuario!.id, 'excluir', 'veiculos', id, { placa: v.placa, chassi: v.chassi, modelo: `${v.marca} ${v.modelo}` });
     return { ok: true };
   });
@@ -222,6 +229,7 @@ export function registrarVeiculos(app: App, b: Banco, op: OpcoesVeiculos): void 
     await mkdir(pastaDocs, { recursive: true });
     const documento = `docveic-${randomBytes(8).toString('hex')}.${arq.ext}`;
     await writeFile(join(pastaDocs, documento), arq.buf);
+    await enviarNuvem(join(pastaDocs, documento), arq.buf);
     limiteLeitura.registrar(chave);
     const r = await ler(arq);
     const d = r.dados;
@@ -247,7 +255,7 @@ export function registrarVeiculos(app: App, b: Banco, op: OpcoesVeiculos): void 
     const veiculo = { ...(c.veiculo ?? {}), preco_venda: c.preco_venda ?? c.veiculo?.preco_venda, preco_minimo: c.preco_minimo ?? c.veiculo?.preco_minimo };
     validarVeiculo(veiculo); // valida antes de criar a pessoa
     const documento = texto(c.documento);
-    if (documento && (!NOME_DOC.test(documento) || !(await stat(join(pastaDocs, documento)).catch(() => null)))) falhar('Documento enviado não encontrado; leia o documento de novo.');
+    if (documento && (!NOME_DOC.test(documento) || !(await trazerDaNuvem(join(pastaDocs, documento))))) falhar('Documento enviado não encontrado; leia o documento de novo.');
 
     const id = b.tx(() => {
       let pessoaId = c.pessoa_id ? numero(c.pessoa_id) : 0;
@@ -340,6 +348,7 @@ export function registrarVeiculos(app: App, b: Banco, op: OpcoesVeiculos): void 
     await mkdir(pastaFotos, { recursive: true });
     const arquivo = `${id}-${randomBytes(8).toString('hex')}.${ext}`;
     await writeFile(join(pastaFotos, arquivo), buf);
+    await enviarNuvem(join(pastaFotos, arquivo), buf);
     const ordem = (b.one('SELECT COALESCE(MAX(ordem), -1) + 1 AS o FROM veiculo_fotos WHERE veiculo_id = ?', [id])!).o;
     return { id: b.inserir('veiculo_fotos', { veiculo_id: id, arquivo, ordem }), arquivo };
   });
@@ -359,6 +368,7 @@ export function registrarVeiculos(app: App, b: Banco, op: OpcoesVeiculos): void 
       ?? falhar('Foto não encontrada.', 404);
     b.run('DELETE FROM veiculo_fotos WHERE id = ?', [f.id]);
     await unlink(join(pastaFotos, f.arquivo)).catch(() => undefined);
+    await apagarNuvem(join(pastaFotos, f.arquivo));
     if (!b.one('SELECT 1 FROM veiculo_fotos WHERE veiculo_id = ?', [f.veiculo_id])) b.run('UPDATE veiculos SET publicado = 0 WHERE id = ?', [f.veiculo_id]);
     return { ok: true };
   });

@@ -548,3 +548,12 @@ export const MIGRACOES: string[] = [
   `,
 ];
 
+
+/**
+ * Versão PostgreSQL (Supabase) das migrações acrescentadas DEPOIS do esquema
+ * base (VERSAO_BASE_PG em schema-pg.ts). Ao criar a migração N acima,
+ * acrescente aqui `N: '...SQL equivalente no PostgreSQL...'`, ou rode
+ * `node dist/scripts/gerar-schema-pg.js` antes de ter qualquer banco
+ * PostgreSQL em uso.
+ */
+export const MIGRACOES_PG: Record<number, string> = {};

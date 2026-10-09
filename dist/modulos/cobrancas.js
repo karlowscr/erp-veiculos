@@ -110,7 +110,7 @@ function htmlRelatorio(lista, e, resumo) {
 }
 export function registrarCobrancas(app, b) {
     const listar = (q, st) => {
-        let lista = b.all('SELECT * FROM cobrancas ORDER BY cliente_nome COLLATE NOCASE').map((c) => situacao(c));
+        let lista = b.all('SELECT * FROM cobrancas ORDER BY lower(cliente_nome)').map((c) => situacao(c));
         if (q) {
             const t = q.toLowerCase();
             lista = lista.filter((c) => [c.cliente_nome, c.descricao, c.veiculo_info, c.cliente_telefone].join(' ').toLowerCase().includes(t));
