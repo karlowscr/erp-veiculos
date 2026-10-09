@@ -218,6 +218,17 @@ Para recuperar o acesso de administrador pela linha de comando (também desbloqu
 npm run criar-admin -- "Nome" email@loja.com.br NovaSenhaForte
 ```
 
+## Na nuvem: Vercel + Supabase
+
+O sistema também roda na Vercel com os dados no Supabase:
+
+- **Banco:** PostgreSQL do Supabase (variável `POSTGRES_URL`). Na primeira vez o sistema cria todas as tabelas sozinho e liga o RLS em todas, para a API pública do Supabase não expor nada.
+- **Arquivos** (fotos, documentos, logo, certificado A1, QR do Pix): bucket privado `erp-arquivos` no Supabase Storage (variáveis `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`).
+- Essas variáveis são criadas pela integração Supabase da Vercel (aba *Storage* do projeto). Além delas: `APP_SEGREDO` (chave que cifra a senha do certificado; não trocar depois de enviar o certificado), `ADMIN_PATH` (endereço secreto do painel), `DEMO_EMAIL`/`DEMO_SENHA` (primeiro administrador). Com `SEM_VEICULOS_EXEMPLO=1` o catálogo começa vazio.
+- A importação de CSV (Configurações → Importar dados) envia cada arquivo em blocos de 300 linhas, para respeitar o limite de tamanho e de tempo da Vercel.
+- O mesmo código também roda num servidor próprio com PostgreSQL: defina `BANCO_URL=postgres://...`. Sem ela, usa o SQLite em `data/erp.db`.
+- Ao criar uma migração nova em `src/db/schema.ts`, escreva também a versão PostgreSQL em `MIGRACOES_PG`.
+
 ## Limitações desta versão
 
 - **Não implementado:**
