@@ -1,0 +1,29 @@
+# Serviço systemd do ERP (Linux). Ajuste o domínio, o usuário e a pasta.
+[Unit]
+Description=ERP Veiculos (catalogo + area da loja)
+After=network.target
+
+[Service]
+Type=simple
+User=erp
+WorkingDirectory=/opt/erp-veiculos
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning dist/server.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORTA=3000
+Environment=CONFIAR_PROXY=1
+Environment=URL_PUBLICA=https://www.crveiculos.com.br
+Environment=PASTA_DADOS=/opt/erp-veiculos/data
+# Environment=ADMIN_PATH=gestao-cr-2026
+# Environment=ANTHROPIC_API_KEY=sk-ant-...
+# Proteções do próprio Linux
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/erp-veiculos/data
+
+[Install]
+WantedBy=multi-user.target

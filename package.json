@@ -1,0 +1,22 @@
+{
+  "name": "erp-veiculos",
+  "version": "1.0.0",
+  "description": "ERP para loja de veículos: estoque, compra, venda, consignação, financeiro, NF-e e RENAVE",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsc -p frontend/tsconfig.json",
+    "start": "node --disable-warning=ExperimentalWarning dist/server.js",
+    "dev": "npm run build && npm start",
+    "test": "npm run build && node --disable-warning=ExperimentalWarning --test dist/tests/*.test.js",
+    "criar-admin": "node --disable-warning=ExperimentalWarning dist/scripts/criar-admin.js",
+    "demo": "node --disable-warning=ExperimentalWarning dist/scripts/demo.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^24.0.0"
+  }
+}

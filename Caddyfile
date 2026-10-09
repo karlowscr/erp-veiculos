@@ -1,0 +1,13 @@
+# Caddy: HTTPS automático (Let's Encrypt) na frente do ERP.
+# Troque o domínio e copie para /etc/caddy/Caddyfile.
+crveiculos.com.br, www.crveiculos.com.br {
+	encode zstd gzip
+	# Uploads de fotos e documentos (o sistema limita cada envio)
+	request_body {
+		max_size 64MB
+	}
+	reverse_proxy 127.0.0.1:3000
+	log {
+		output file /var/log/caddy/erp-veiculos.log
+	}
+}

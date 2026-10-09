@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "mkdir -p vazio && echo ok > vazio/.vazio",
+  "installCommand": "echo sem-dependencias",
+  "outputDirectory": "vazio",
+  "regions": ["gru1"],
+  "functions": {
+    "api/index.mjs": { "includeFiles": "{dist,public,site,demo}/**", "maxDuration": 30, "memory": 1024 }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index.mjs" }]
+}

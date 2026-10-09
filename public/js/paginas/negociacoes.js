@@ -1,0 +1,333 @@
+import { api, pode, sessao } from '../api.js';
+import { html, montar, $, $$, acoes, campos, aoEnviar, lerForm, modal, aviso, moeda, data, doc, placa, selo, rotulo, hoje, vazio, } from '../ui.js';
+import { seletorPessoa } from './pessoas.js';
+import { formVeiculoHtml, extrairDadosVeiculo } from './veiculos.js';
+const FORMAS = [
+    ['pix', 'PIX'], ['dinheiro', 'Dinheiro'], ['transferencia', 'Transferência'], ['cartao_debito', 'Cartão de débito'],
+    ['cartao_credito', 'Cartão de crédito'], ['financiamento', 'Financiamento'], ['boleto', 'Boleto'], ['promissoria', 'Promissória'], ['cheque', 'Cheque'],
+];
+export async function render(el, params) {
+    if (params[0] === 'nova') {
+        if (params[1]?.startsWith('venda'))
+            return novaVenda(el);
+        if (params[1]?.startsWith('compra'))
+            return novaEntrada(el, 'compra');
+        if (params[1]?.startsWith('consignacao'))
+            return novaEntrada(el, 'consignacao');
+    }
+    if (params[0])
+        return detalhe(el, Number(params[0]));
+    const filtro = new URLSearchParams(location.hash.split('?')[1] ?? '');
+    const tipo = filtro.get('tipo') ?? '';
+    const de = filtro.get('de') ?? hoje().slice(0, 8) + '01';
+    const ate = filtro.get('ate') ?? hoje();
+    const lista = await api.get(`/api/negociacoes?tipo=${tipo}&de=${de}&ate=${ate}`);
+    const total = lista.filter((n) => n.status === 'concluida' && n.tipo === 'venda').reduce((s, n) => s + n.valor_final, 0);
+    montar(el, html `
+  <header class="topo-pagina"><h1>Negociações</h1>
+    <div class="botoes">${pode('negociacoes.vender') ? html `<a class="botao" href="#/negociacoes/nova/venda">Registrar venda</a>` : ''}${pode('negociacoes.comprar') ? html `<a class="botao sec" href="#/negociacoes/nova/compra">Registrar compra</a>` : ''}${pode('negociacoes.consignar') ? html `<a class="botao sec" href="#/negociacoes/nova/consignacao">Receber em consignação</a>` : ''}</div></header>
+  <form class="filtros" id="f-filtro">
+    <select name="tipo" aria-label="Tipo">${[['', 'Todos os tipos'], ['venda', 'Vendas'], ['compra', 'Compras'], ['consignacao', 'Consignações'], ['devolucao_consignacao', 'Devoluções']].map(([v, t]) => html `<option value="${v}" ${v === tipo ? 'selected' : ''}>${t}</option>`)}</select>
+    <label>De <input type="date" name="de" value="${de}"></label><label>até <input type="date" name="ate" value="${ate}"></label>
+    <button class="sec" type="submit">Filtrar</button>
+  </form>
+  ${lista.length ? html `<p class="mudo">${lista.length} negociação(ões) no período. Vendas concluídas: <b>${moeda(total)}</b>.</p>
+  <div class="tabela-rolagem"><table class="tabela"><thead><tr><th>Data</th><th>Tipo</th><th>Veículo</th><th>Pessoa</th><th>Vendedor</th><th class="n">Valor</th><th>NF-e</th><th>Situação</th></tr></thead>
+  <tbody>${lista.map((n) => html `<tr data-acao="abrir" data-id="${n.id}" tabindex="0"><td>${data(n.data)}</td><td>${rotulo(n.tipo)}</td><td>${placa(n.placa, true)} ${n.marca} ${n.modelo}</td>
+  <td>${n.pessoa_nome}</td><td>${n.vendedor_nome ?? ''}</td><td class="n">${moeda(n.valor_final)}</td><td>${n.nfe_status ? selo(n.nfe_status) : html `<span class="mudo">sem nota</span>`}</td><td>${selo(n.status)}</td></tr>`)}</tbody></table></div>`
+        : vazio('Nenhuma negociação no período.')}`);
+    $('#f-filtro', el).addEventListener('submit', (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        location.hash = `#/negociacoes?tipo=${f.get('tipo')}&de=${f.get('de')}&ate=${f.get('ate')}`;
+    });
+    acoes(el, { abrir: (t) => (location.hash = `#/negociacoes/${t.dataset.id}`) });
+}
+// ---------- Pagamentos (linhas dinâmicas) ----------
+function linhaPagamento(i, forma = 'pix', valor = '') {
+    return html `<div class="pagamento" data-i="${i}">
+    <select name="forma" aria-label="Forma de pagamento">${FORMAS.map(([v, t]) => html `<option value="${v}" ${v === forma ? 'selected' : ''}>${t}</option>`)}</select>
+    <input name="valor" type="number" step="0.01" min="0.01" placeholder="Valor" value="${valor}" aria-label="Valor" required>
+    <input name="parcelas" type="number" min="1" max="120" value="1" aria-label="Parcelas" title="Parcelas">
+    <input name="primeiro_vencimento" type="date" aria-label="Primeiro vencimento" title="Primeiro vencimento (vazio = padrão)">
+    <div class="banco" hidden></div>
+    <button type="button" class="link" data-rem-pag>Remover</button></div>`;
+}
+function ligarPagamentos(raiz, papelBanco, aoMudar) {
+    let n = 0;
+    const area = $('.pagamentos', raiz);
+    const ajustar = (div) => {
+        const forma = div.querySelector('[name=forma]').value;
+        const banco = div.querySelector('.banco');
+        const precisa = papelBanco && forma === 'financiamento';
+        banco.hidden = !precisa;
+        if (precisa && !banco.dataset.ok) {
+            seletorPessoa(banco, 'banco_' + div.dataset.i, 'Banco / financeira', { papel: 'fornecedor', obrigatorio: true });
+            banco.dataset.ok = '1';
+        }
+    };
+    const adicionar = (forma, valor) => {
+        area.insertAdjacentHTML('beforeend', linhaPagamento(n++, forma, valor).s);
+        ajustar(area.lastElementChild);
+        aoMudar();
+    };
+    raiz.querySelector('[data-add-pag]').addEventListener('click', () => adicionar());
+    area.addEventListener('click', (e) => {
+        if (e.target.matches('[data-rem-pag]')) {
+            e.target.closest('.pagamento').remove();
+            aoMudar();
+        }
+    });
+    area.addEventListener('change', (e) => { const d = e.target.closest('.pagamento'); if (d)
+        ajustar(d); aoMudar(); });
+    area.addEventListener('input', aoMudar);
+    return { adicionar };
+}
+function lerPagamentos(raiz) {
+    return $$('.pagamento', raiz).map((d) => {
+        const v = (n) => d.querySelector(`[name=${n}]`)?.value;
+        return {
+            forma: v('forma'), valor: Number(v('valor')), parcelas: Number(v('parcelas') || 1), primeiro_vencimento: v('primeiro_vencimento'),
+            pessoa_id: d.querySelector('.banco input[type=hidden]')?.value || null,
+        };
+    });
+}
+// ---------- Nova venda ----------
+async function novaVenda(el) {
+    const sel = new URLSearchParams(location.hash.split('?')[1] ?? '').get('veiculo');
+    const [estoque, reservados, usuarios] = await Promise.all([
+        api.get('/api/veiculos?situacao=estoque'), api.get('/api/veiculos?situacao=reservado'),
+        pode('negociacoes.ver_todas') ? api.get('/api/usuarios/vendedores') : Promise.resolve([sessao.usuario]),
+    ]);
+    const veiculos = [...estoque, ...reservados];
+    if (!veiculos.length)
+        return montar(el, vazio('Não há veículos disponíveis para venda.', html `<a class="botao" href="#/negociacoes/nova/compra">Registrar compra</a>`));
+    montar(el, html `
+  <header class="topo-pagina"><div><a href="#/negociacoes" class="voltar">Negociações</a><h1>Registrar venda</h1></div></header>
+  <form id="f-venda" class="form-venda">
+    <section class="bloco"><h2>Veículo e cliente</h2>
+      <div class="grade-form">
+        <div class="campo l2"><label for="f_veic">Veículo<span class="obr">*</span></label><select id="f_veic" name="veiculo_id" required>
+          <option value="">Selecione</option>${veiculos.map((v) => html `<option value="${v.id}" data-preco="${v.preco_venda}" data-km="${v.km}" data-origem="${v.origem}" ${String(v.id) === sel ? 'selected' : ''}>${v.placa || '0 km'} — ${v.marca} ${v.modelo} ${v.ano_mod} (${moeda(v.preco_venda)})${v.situacao === 'reservado' ? ' [reservado]' : ''}</option>`)}</select></div>
+        <div class="l2" id="sel-cliente"></div>
+        ${campos([
+        { nome: 'vendedor_id', rotulo: 'Vendedor', tipo: 'select', opcoes: usuarios.filter((u) => u.ativo !== 0).map((u) => [String(u.id), u.nome]), largura: 1 },
+        { nome: 'data', rotulo: 'Data', tipo: 'data', largura: 1 },
+        { nome: 'km_entrega', rotulo: 'Km na entrega', tipo: 'numero', largura: 1 },
+        { nome: 'comissao_pct', rotulo: 'Comissão (%)', tipo: 'numero', largura: 1, dica: 'Vazio usa a do vendedor.' },
+    ], { vendedor_id: String(sessao.usuario.id), data: hoje() })}
+      </div>
+    </section>
+    <section class="bloco"><h2>Valores</h2>
+      <div class="grade-form">${campos([
+        { nome: 'valor', rotulo: 'Preço de venda', tipo: 'moeda', obrigatorio: true, largura: 1 },
+        { nome: 'desconto', rotulo: 'Desconto', tipo: 'moeda', largura: 1 },
+    ])}<div class="campo l2 consig" hidden><label for="f_rep">Repasse ao proprietário</label><input id="f_rep" type="number" step="0.01" name="repasse_valor"><small>Vazio usa o valor combinado na consignação.</small></div></div>
+      <label class="check"><input type="checkbox" id="tem-troca"> Cliente vai dar um veículo na troca</label>
+      <div id="troca" hidden data-ignorar><h3>Veículo da troca</h3>
+        <div class="grade-form">${campos([{ nome: 'valor_troca', rotulo: 'Valor de avaliação', tipo: 'moeda', largura: 1 }])}</div>
+        <div data-troca>${formVeiculoHtml()}</div></div>
+    </section>
+    <section class="bloco"><h2>Pagamento</h2>
+      <div class="pagamentos"><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div>
+      <button type="button" class="sec" data-add-pag>Adicionar forma de pagamento</button>
+      <p class="conferencia" aria-live="polite"></p>
+      ${campos([{ nome: 'obs', rotulo: 'Observações', tipo: 'area', largura: 4 }])}
+    </section>
+    <div class="acoes-form"><a class="botao sec" href="#/negociacoes">Voltar</a><button type="submit">Concluir venda</button></div>
+  </form>`);
+    const f = $('#f-venda', el);
+    seletorPessoa($('#sel-cliente', el), 'pessoa_id', 'Cliente', { obrigatorio: true });
+    const selVeic = $('#f_veic', el);
+    const conferir = () => {
+        const d = lerForm(f);
+        const final = Number(d.valor || 0) - Number(d.desconto || 0);
+        const troca = $('#tem-troca', el).checked ? Number($('[name=valor_troca]', el).value || 0) : 0;
+        const pago = lerPagamentos(el).reduce((s, p) => s + (p.valor || 0), 0);
+        const falta = Math.round((final - troca - pago) * 100) / 100;
+        $('.conferencia', el).innerHTML = html `Valor final <b>${moeda(final)}</b>${troca ? html `, troca ${moeda(troca)}` : ''}, pagamentos ${moeda(pago)}. ${final <= 0 ? '' : falta === 0 ? html `<span class="ok">Fechado.</span>` : html `<span class="falta">${falta > 0 ? 'Falta' : 'Sobra'} ${moeda(Math.abs(falta))}.</span>`}`.s;
+    };
+    const pags = ligarPagamentos(el, true, conferir);
+    const aoVeiculo = () => {
+        const o = selVeic.selectedOptions[0];
+        if (!o?.value)
+            return;
+        $('[name=valor]', el).value = o.dataset.preco ?? '';
+        $('[name=km_entrega]', el).value = o.dataset.km ?? '';
+        $('.consig', el).hidden = o.dataset.origem !== 'consignacao';
+        conferir();
+    };
+    selVeic.addEventListener('change', aoVeiculo);
+    aoVeiculo();
+    pags.adicionar('pix');
+    f.addEventListener('input', conferir);
+    $('#tem-troca', el).addEventListener('change', (e) => { $('#troca', el).hidden = !e.target.checked; conferir(); });
+    f.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const btn = f.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            const d = lerForm(f);
+            const corpo = { ...d, pagamentos: lerPagamentos(el) };
+            if ($('#tem-troca', el).checked) {
+                const t = {};
+                for (const i of $$('[data-troca] [name]', el))
+                    t[i.name] = i.type === 'checkbox' ? i.checked : i.value;
+                corpo.troca = { valor: $('[name=valor_troca]', el).value, veiculo: extrairDadosVeiculo(t) };
+            }
+            const r = await api.post('/api/negociacoes/venda', corpo);
+            aviso('Venda registrada.');
+            location.hash = `#/negociacoes/${r.id}`;
+        }
+        catch (e) {
+            aviso(e.message, 'erro');
+        }
+        finally {
+            btn.disabled = false;
+        }
+    });
+}
+// ---------- Nova compra / consignação ----------
+async function novaEntrada(el, tipo) {
+    const compra = tipo === 'compra';
+    montar(el, html `
+  <header class="topo-pagina"><div><a href="#/negociacoes" class="voltar">Negociações</a><h1>${compra ? 'Registrar compra' : 'Receber veículo em consignação'}</h1></div></header>
+  <form id="f-ent">
+    <section class="bloco"><h2>${compra ? 'De quem a loja está comprando' : 'Proprietário do veículo'}</h2>
+      <div class="grade-form"><div class="l2" id="sel-pessoa"></div>
+      ${campos([
+        compra ? { nome: 'valor', rotulo: 'Valor da compra', tipo: 'moeda', obrigatorio: true, largura: 1 } : { nome: 'valor_repasse', rotulo: 'Valor líquido para o proprietário', tipo: 'moeda', obrigatorio: true, largura: 1, dica: 'O que ele recebe quando o carro for vendido.' },
+        { nome: 'data', rotulo: 'Data', tipo: 'data', largura: 1 },
+    ], { data: hoje() })}</div>
+    </section>
+    <section class="bloco"><h2>Veículo</h2><div data-veic>${formVeiculoHtml()}</div></section>
+    ${compra ? html `<section class="bloco"><h2>Pagamento ao vendedor</h2><p class="mudo">Sem formas de pagamento, o sistema gera uma conta a pagar com vencimento na data da compra.</p>
+      <div class="pagamentos"><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div><button type="button" class="sec" data-add-pag>Adicionar forma de pagamento</button><p class="conferencia"></p></section>` : ''}
+    <section class="bloco">${campos([{ nome: 'obs', rotulo: 'Observações', tipo: 'area', largura: 4 }])}</section>
+    <div class="acoes-form"><a class="botao sec" href="#/negociacoes">Voltar</a><button type="submit">${compra ? 'Concluir compra' : 'Concluir consignação'}</button></div>
+  </form>`);
+    seletorPessoa($('#sel-pessoa', el), 'pessoa_id', compra ? 'Vendedor' : 'Proprietário', { obrigatorio: true });
+    const f = $('#f-ent', el);
+    if (compra) {
+        const conferir = () => {
+            const valor = Number($('[name=valor]', el).value || 0);
+            const pago = lerPagamentos(el).reduce((s, p) => s + (p.valor || 0), 0);
+            const falta = Math.round((valor - pago) * 100) / 100;
+            $('.conferencia', el).textContent = pago ? (falta === 0 ? 'Pagamentos fecham com o valor da compra.' : `${falta > 0 ? 'Falta' : 'Sobra'} ${moeda(Math.abs(falta))}.`) : '';
+        };
+        ligarPagamentos(el, false, conferir);
+        f.addEventListener('input', conferir);
+    }
+    f.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const btn = f.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            const v = {};
+            for (const i of $$('[data-veic] [name]', el))
+                v[i.name] = i.value;
+            const g = (n) => f.elements.namedItem(n)?.value;
+            const corpo = {
+                pessoa_id: g('pessoa_id'), data: g('data'), obs: g('obs'), veiculo: extrairDadosVeiculo(v),
+                ...(compra ? { valor: g('valor'), pagamentos: lerPagamentos(el) } : { valor_repasse: g('valor_repasse') }),
+            };
+            const r = await api.post(`/api/negociacoes/${tipo}`, corpo);
+            aviso(compra ? 'Compra registrada. Veículo no estoque.' : 'Consignação registrada. Veículo no estoque.');
+            location.hash = `#/negociacoes/${r.id}`;
+        }
+        catch (e) {
+            aviso(e.message, 'erro');
+        }
+        finally {
+            btn.disabled = false;
+        }
+    });
+}
+// ---------- Detalhe ----------
+async function detalhe(el, id) {
+    const n = await api.get(`/api/negociacoes/${id}`);
+    const v = n.veiculo;
+    const ativa = n.status === 'concluida';
+    const nfeOk = n.nfes.find((f) => f.status === 'autorizada');
+    const nfePendente = n.nfes.find((f) => ['assinada', 'erro'].includes(f.status));
+    const temNfe = ativa;
+    montar(el, html `
+  <header class="topo-pagina"><div><a href="#/negociacoes" class="voltar">Negociações</a>
+    <h1>${rotulo(n.tipo)} nº ${n.id} ${selo(n.status)}</h1>
+    <p class="mudo">${data(n.data)}, ${n.pessoa_nome} (${doc(n.pessoa_doc)})${n.vendedor_nome ? ', vendedor ' + n.vendedor_nome : ''}</p></div>
+    <div class="botoes">${ativa && pode('negociacoes.cancelar') ? html `<button class="sec perigo" data-acao="cancelar">Cancelar negociação</button>` : ''}</div>
+  </header>
+
+  <a class="cartao-veiculo" href="#/veiculos/${v.id}">${placa(v.placa)}<span><b>${v.marca} ${v.modelo} ${v.versao}</b><br>${v.ano_fab}/${v.ano_mod}, chassi ${v.chassi}</span></a>
+
+  <section class="faixa-numeros">
+    <div><span>Valor</span><b>${moeda(n.valor)}</b>${n.desconto ? html `<small>desconto ${moeda(n.desconto)}</small>` : ''}</div>
+    <div><span>Valor final</span><b>${moeda(n.valor_final)}</b>${n.valor_troca ? html `<small>troca ${moeda(n.valor_troca)}</small>` : ''}</div>
+    ${n.tipo === 'venda' ? html `
+      <div><span>Comissão</span><b>${moeda(n.comissao_valor)}</b><small>${n.comissao_pct}%</small></div>
+      <div><span>Resultado da venda</span><b class="${n.resultado < 0 ? 'neg' : ''}">${moeda(n.resultado)}</b><small>${v.origem === 'consignacao' ? `repasse ${moeda(n.repasse_valor)}` : `custo ${moeda(n.custo_veiculo)}`}, já descontada a comissão</small></div>` : ''}
+    ${n.tipo === 'consignacao' ? html `<div><span>Repasse combinado</span><b>${moeda(n.repasse_valor)}</b></div>` : ''}
+  </section>
+  ${n.troca ? html `<p>Veículo recebido na troca: <a href="#/veiculos/${n.troca.id}">${n.troca.marca} ${n.troca.modelo} ${n.troca.ano_mod} ${n.troca.placa}</a></p>` : ''}
+
+  <div class="grade-2">
+    <section class="bloco"><h2>Nota fiscal</h2>
+      ${n.nfes.length ? html `<ul class="historico">${n.nfes.map((f) => html `<li>${selo(f.status)} <b>NF-e ${f.numero}</b> série ${f.serie} ${f.tipo_nf === 0 ? '(entrada)' : '(saída)'}
+        ${f.cstat ? html `<small>${f.cstat} — ${f.xmotivo}</small>` : ''}
+        <span class="botoes-mini"><a href="#/notas/${f.id}">Detalhes</a> <a href="/api/nfes/${f.id}/danfe" target="_blank" rel="noopener">DANFE</a> <a href="/api/nfes/${f.id}/xml">XML</a></span></li>`)}</ul>` : html `<p class="mudo">Nenhuma nota emitida.</p>`}
+      ${temNfe && !nfeOk && pode('notas.emitir') ? html `<button data-acao="emitir">${nfePendente ? 'Transmitir NF-e novamente' : n.nfes.length ? 'Emitir NF-e corrigida' : 'Emitir NF-e'}</button>` : ''}
+    </section>
+    <section class="bloco"><h2>RENAVE</h2>
+      <p>${selo(v.renave_status)}</p>
+      ${ativa && n.tipo === 'venda' && v.renave_status === 'em_estoque' && pode('renave.operar') ? html `<button data-acao="renave-saida" ${nfeOk ? '' : 'disabled'}>Registrar saída por venda</button>${nfeOk ? '' : html `<p class="mudo">Autorize a NF-e de venda primeiro.</p>`}` : ''}
+      ${ativa && ['compra', 'consignacao'].includes(n.tipo) && ['pendente', 'erro'].includes(v.renave_status) && ['estoque', 'reservado'].includes(v.situacao) ? html `<a class="botao sec" href="#/veiculos/${v.id}">Registrar entrada no veículo</a>` : ''}
+      ${n.tipo === 'venda' && v.renave_status === 'pendente' ? html `<p class="mudo">A entrada deste veículo não foi registrada no RENAVE. Registre a entrada antes da saída.</p>` : ''}
+    </section>
+  </div>
+
+  <section class="bloco"><h2>Pagamentos e títulos</h2>
+    ${n.pagamentos.length ? html `<p>${n.pagamentos.map((p) => html `<span class="etiqueta">${rotulo(p.forma)} ${moeda(p.valor)}${p.parcelas > 1 ? ` em ${p.parcelas}x` : ''}</span> `)}</p>` : ''}
+    ${n.titulos.length ? html `<table class="tabela compacta"><thead><tr><th>Tipo</th><th>Descrição</th><th>Vencimento</th><th class="n">Valor</th><th>Situação</th></tr></thead>
+    <tbody>${n.titulos.map((t) => html `<tr><td>${rotulo(t.tipo)}</td><td>${t.descricao}</td><td>${data(t.vencimento)}</td><td class="n">${moeda(t.valor)}</td><td>${selo(t.status)}</td></tr>`)}</tbody></table>` : html `<p class="mudo">Sem títulos financeiros.</p>`}
+  </section>
+  ${n.obs ? html `<section class="bloco"><h2>Observações</h2><p>${n.obs}</p></section>` : ''}`);
+    const recarregar = () => detalhe(el, id);
+    acoes(el, {
+        cancelar: () => {
+            const m = modal('Cancelar negociação', html `<form id="f-canc"><p>O veículo volta ao estoque (venda) ou sai dele (compra/consignação), e os títulos em aberto são cancelados.</p>
+        <div class="grade-form">${campos([{ nome: 'motivo', rotulo: 'Motivo', tipo: 'area', obrigatorio: true, largura: 4 }])}</div>
+        <div class="acoes-form"><button type="button" class="sec" data-fechar>Voltar</button><button type="submit" class="perigo">Cancelar negociação</button></div></form>`);
+            aoEnviar($('#f-canc', m.el), async (d) => { await api.post(`/api/negociacoes/${id}/cancelar`, d); m.fechar(); aviso('Negociação cancelada.'); recarregar(); });
+        },
+        emitir: async () => {
+            if (nfePendente) {
+                const r = await api.post(`/api/nfes/${nfePendente.id}/transmitir`);
+                aviso(r.status === 'autorizada' ? `NF-e ${r.numero} autorizada.` : `${rotulo(r.status)}: ${r.xmotivo ?? ''}`, r.status === 'autorizada' ? 'ok' : 'erro');
+                return recarregar();
+            }
+            const p = await api.get(`/api/negociacoes/${id}/nfe/previa`);
+            const m = modal('Emitir NF-e', html `
+        ${p.ambiente === 2 ? html `<p class="alerta-caixa">Ambiente de homologação: a nota não tem valor fiscal.</p>` : ''}
+        <dl class="dados"><dt>Número</dt><dd>${p.numero}</dd><dt>Natureza</dt><dd>${p.natureza}</dd><dt>CFOP</dt><dd>${p.cfop}</dd><dt>Destinatário</dt><dd>${p.destinatario}</dd>
+        <dt>Valor da nota</dt><dd>${moeda(p.totais.vNF)}</dd><dt>ICMS</dt><dd>${moeda(p.totais.vICMS)}</dd></dl>
+        <p class="mudo">${p.infCpl}</p>
+        <form id="f-nfe">${n.tipo === 'devolucao_consignacao' ? campos([{ nome: 'chave_referencia', rotulo: 'Chave da NF-e de entrada (se não foi emitida aqui)', largura: 4 }]) : ''}
+        <div class="acoes-form"><button type="button" class="sec" data-fechar>Voltar</button><button type="submit">Emitir e transmitir</button></div></form>`, { largo: true });
+            aoEnviar($('#f-nfe', m.el), async (d) => {
+                const r = await api.post(`/api/negociacoes/${id}/nfe`, d);
+                m.fechar();
+                aviso(r.status === 'autorizada' ? `NF-e ${r.numero} autorizada.` : `${rotulo(r.status)}: ${r.cstat ?? ''} ${r.xmotivo ?? ''}`, r.status === 'autorizada' ? 'ok' : 'erro');
+                recarregar();
+            });
+        },
+        'renave-saida': () => {
+            const m = modal('Registrar saída no RENAVE', html `<form id="f-rs"><p>Com a saída registrada, o RENAVE comunica a transferência ao DETRAN e gera a ATPV-e para o comprador.</p>
+        <div class="grade-form">${campos([
+                { nome: 'km', rotulo: 'Km na entrega', tipo: 'numero', obrigatorio: true, largura: 2 },
+                { nome: 'email', rotulo: 'E-mail do comprador', tipo: 'email', largura: 2, dica: 'Vazio usa o do cadastro.' },
+            ], { km: n.km_entrega })}</div>
+        <div class="acoes-form"><button type="button" class="sec" data-fechar>Voltar</button><button type="submit">Registrar saída</button></div></form>`);
+            aoEnviar($('#f-rs', m.el), async (d) => { const r = await api.post(`/api/negociacoes/${id}/renave/saida`, d); m.fechar(); aviso(r.mensagem); recarregar(); });
+        },
+    });
+}
