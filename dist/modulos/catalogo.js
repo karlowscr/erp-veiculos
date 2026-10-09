@@ -87,7 +87,7 @@ function layout(ctx, req, e, op) {
 <meta property="og:title" content="${esc(op.titulo)}"><meta property="og:description" content="${esc(op.descricao)}">
 <meta property="og:url" content="${esc(origem + op.canonico)}">
 ${op.imagem ? `<meta property="og:image" content="${esc(origem + op.imagem)}"><meta name="twitter:card" content="summary_large_image">` : ''}
-<meta name="theme-color" content="#1c2127">
+<meta name="theme-color" content="#ffffff">
 ${logo ? `<link rel="icon" href="${esc(logo)}">` : ''}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
