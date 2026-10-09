@@ -10,7 +10,7 @@ import { registrarFinanceiro } from './modulos/financeiro.js';
 import { registrarFiscal } from './modulos/fiscal.js';
 import { registrarRenave } from './modulos/renave.js';
 import { iniciarSegredo } from './util/cripto.js';
-import { configurarNuvem } from './util/nuvem.js';
+import { configurarNuvem, nuvemAtiva } from './util/nuvem.js';
 import { registrarContratos } from './modulos/contratos.js';
 import { registrarCobrancas } from './modulos/cobrancas.js';
 import { registrarCarnes } from './modulos/carnes.js';
@@ -79,6 +79,8 @@ export function criarAplicacao(op: OpcoesAplicacao) {
   const cfgFiscal = { pastaCertificados: join(pastaDados, 'certificados'), pastaArquivos, transporte: op.transporteSefaz };
   const caminhoAdmin = definirCaminhoAdmin(banco, op.caminhoAdmin);
 
+  // Situação do serviço (para conferir rapidamente se o banco e os arquivos estão na nuvem)
+  app.get('/api/saude', () => ({ ok: true, banco: banco.motor, arquivos: nuvemAtiva() ? 'supabase' : 'local' }), { publica: true });
   registrarAuth(app, banco);
   registrarPessoas(app, banco);
   registrarVeiculos(app, banco, { pastaFotos, pastaArquivos, fipe: op.buscarFipe ? new Fipe(banco, op.buscarFipe) : undefined, leitor: op.leitorDocumento });
@@ -91,10 +93,11 @@ export function criarAplicacao(op: OpcoesAplicacao) {
   registrarCarnes(app, banco, pastaArquivos);
   registrarDocumentos(app, banco, pastaArquivos);
   registrarImportacao(app, banco, pastaArquivos);
-  registrarCatalogo(app, banco, { pastaFotos, pastaArquivos, caminhoAdmin, urlPublica: app.cfg.urlPublica });
+  const pastaSite = resolve(op.pastaSite ?? join(op.pastaPublica, '..', 'site'));
+  registrarCatalogo(app, banco, { pastaFotos, pastaArquivos, caminhoAdmin, urlPublica: app.cfg.urlPublica, pastaSite });
 
   app.pastasEstaticas.push(
-    { prefixo: '/s/', pasta: resolve(op.pastaSite ?? join(op.pastaPublica, '..', 'site')), protegida: false, cache: true },
+    { prefixo: '/s/', pasta: pastaSite, protegida: false, cache: true },
     { prefixo: '/fotos/', pasta: pastaFotos, protegida: true },
     { prefixo: '/arquivos/', pasta: pastaArquivos, protegida: true },
     { prefixo: `/${caminhoAdmin}/`, pasta: resolve(op.pastaPublica), protegida: false, spa: true, semIndexar: true },

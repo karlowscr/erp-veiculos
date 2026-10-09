@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { trazerDaNuvem } from '../util/nuvem.js';
 import { join, extname } from 'node:path';
@@ -92,7 +94,7 @@ ${op.imagem ? `<meta property="og:image" content="${esc(origem + op.imagem)}"><m
 ${logo ? `<link rel="icon" href="${esc(logo)}">` : ''}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/s/catalogo.css?v=3">
+<link rel="stylesheet" href="/s/catalogo.css?v=${versaoSite.css}">
 <style>:root{--marca:${cor}}</style>
 ${op.jsonLd ? `<script type="application/ld+json">${JSON.stringify(op.jsonLd).replace(/</g, '\\u003c')}</script>` : ''}
 </head><body class="${op.classe ?? ''}" data-whats="${esc(whatsapp(e))}" data-loja="${esc(loja)}">
@@ -132,7 +134,7 @@ ${op.barraFixa ?? (zap ? `<a class="zap-flutuante" href="${esc(zap)}" target="_b
     <small>Seu pedido chega à loja e a conversa abre no WhatsApp com tudo preenchido.</small>
   </form>
 </dialog>
-<script src="/s/catalogo.js?v=3" defer></script>
+<script src="/s/catalogo.js?v=${versaoSite.js}" defer></script>
 </body></html>`;
 }
 function cartao(v) {
@@ -423,7 +425,20 @@ async function enviarArquivo(res, arquivo, cache) {
 }
 /** Pedidos do site: 6 por hora por endereço de internet. */
 const limiteContato = new Limitador(6, 60 * 60_000, 60 * 60_000);
+/** Versão dos arquivos do site pelo conteúdo: muda o endereço a cada atualização, e o navegador não usa a cópia antiga. */
+const versaoSite = { css: '1', js: '1' };
+function lerVersoes(pastaSite) {
+    if (!pastaSite)
+        return;
+    for (const k of ['css', 'js']) {
+        try {
+            versaoSite[k] = createHash('sha256').update(readFileSync(join(pastaSite, `catalogo.${k}`))).digest('hex').slice(0, 10);
+        }
+        catch { /* fica a padrão */ }
+    }
+}
 export function registrarCatalogo(app, b, op) {
+    lerVersoes(op.pastaSite);
     const ctx = { b, pastaFotos: op.pastaFotos, pastaArquivos: op.pastaArquivos, urlPublica: op.urlPublica };
     // ---- Pedidos feitos no catálogo (visita, troca, financiamento) ----
     app.post('/api/site/contato', (req) => {
