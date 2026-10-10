@@ -640,3 +640,11 @@ button.link.perigo:not(.icone-btn):not(.sec) { color: var(--vermelho); backgroun
 .fotos-previa figure { position: relative; margin: 0; display: grid; gap: .25rem; }
 .fotos-previa img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; border: 1px solid var(--linha); }
 .fotos-previa .capa { position: absolute; top: .35rem; left: .35rem; background: var(--laranja); color: #fff; font-size: .72rem; font-weight: 700; padding: .1rem .45rem; border-radius: 99px; }
+.chips-msg { display: flex; flex-wrap: wrap; gap: .45rem; margin: .3rem 0 .9rem; }
+.chip-msg { display: inline-flex; align-items: center; gap: .4rem; background: var(--branco, #fff); color: var(--tinta); border: 1px solid var(--linha); box-shadow: none; padding: .5rem .8rem; border-radius: 10px; font-weight: 600; font-size: .88rem; }
+.chip-msg[aria-checked="true"] { background: var(--laranja); border-color: var(--laranja); color: #fff; }
+.rotulo-campo { display: block; font-weight: 600; margin: 0 0 .3rem; }
+.previa-msg { width: 100%; min-height: 230px; background: #effaf2; border: 1px solid #b9e6c6; border-radius: 12px; padding: .9rem 1rem; font: inherit; line-height: 1.5; color: #14532d; resize: vertical; }
+#qual-pag { margin-bottom: .8rem; }
+button.verde:not(.sec):not(.icone-btn) { background: #16a34a; border-color: #16a34a; color: #fff; }
+button.verde:not(.sec):not(.icone-btn):hover { background: #15803d; }

@@ -192,14 +192,14 @@ export function registrarFinanceiro(app: App, b: Banco): void {
   });
 }
 
-export function reciboTitulo(b: Banco, id: number, emitidoPor: string) {
+export function reciboTitulo(b: Banco, id: number, emitidoPor: string, unicaVia = false) {
   const t = b.one('SELECT * FROM titulos WHERE id = ?', [id]) ?? falhar('Conta não encontrada.', 404);
   if (t.status !== 'pago') falhar('O recibo só existe depois de registrado o pagamento.');
   const pessoa = t.pessoa_id ? b.one('SELECT nome, cpf_cnpj FROM pessoas WHERE id = ?', [t.pessoa_id]) : undefined;
   const cob = b.one('SELECT c.cliente_nome FROM cobranca_pagamentos p JOIN cobrancas c ON c.id = p.cobranca_id WHERE p.titulo_id = ?', [id]);
   const numero = `${String(t.pago_em ?? '').slice(0, 4)}-${String(id).padStart(6, '0')}`;
   return {
-    corpo: htmlRecibo({ ...t, cliente_nome: cob?.cliente_nome }, b.one('SELECT * FROM empresa WHERE id = 1')!, pessoa, { numero, emitidoPor }),
+    corpo: htmlRecibo({ ...t, cliente_nome: cob?.cliente_nome }, b.one('SELECT * FROM empresa WHERE id = 1')!, pessoa, { numero, emitidoPor, unicaVia }),
     tipo: 'text/html; charset=utf-8',
   };
 }

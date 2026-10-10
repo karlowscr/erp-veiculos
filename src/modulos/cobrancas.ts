@@ -3,6 +3,10 @@ import type { Banco, Linha } from '../db/database.js';
 import { falhar, texto, numero, r2, hoje, somarMeses } from '../util/comum.js';
 import { auditar } from './auth.js';
 import { reciboTitulo } from './financeiro.js';
+import { seloLink, conferirSelo } from '../util/cripto.js';
+
+/** Link público (sem login) do comprovante de um pagamento, para mandar ao cliente. */
+export const linkComprovante = (pagamentoId: number) => `/api/comprovante/${pagamentoId}-${seloLink('comprovante:' + pagamentoId)}`;
 import { pagina, cabecalho, esc, moeda, dataBr, telFmt } from '../impressao/base.js';
 
 export type SituacaoCobranca = 'quitado' | 'atrasado' | 'em_dia';
@@ -127,7 +131,9 @@ export function registrarCobrancas(app: App, b: Banco): void {
 
   app.get('/api/cobrancas/:id', (req) => {
     const c = b.one('SELECT * FROM cobrancas WHERE id = ?', [Number(req.params.id)]) ?? falhar('Cobrança não encontrada.', 404);
-    return { ...situacao(c), pagamentos: b.all('SELECT * FROM cobranca_pagamentos WHERE cobranca_id = ? ORDER BY parcela', [c.id]) };
+    const pagamentos = b.all('SELECT * FROM cobranca_pagamentos WHERE cobranca_id = ? ORDER BY parcela', [c.id])
+      .map((p) => ({ ...p, comprovante: p.titulo_id ? linkComprovante(p.id as number) : null }));
+    return { ...situacao(c), pagamentos };
   });
 
   app.post('/api/cobrancas', (req) => {
@@ -205,6 +211,17 @@ export function registrarCobrancas(app: App, b: Banco): void {
     if (!p.titulo_id) falhar('Este pagamento foi importado sem lançamento no financeiro; não há recibo.');
     return reciboTitulo(b, p.titulo_id, req.usuario!.nome);
   });
+
+  // Comprovante aberto pelo cliente no link enviado pelo WhatsApp (o selo impede adivinhar outros)
+  app.get('/api/comprovante/:codigo', (req) => {
+    const cod = String(req.params.codigo), i = cod.indexOf('-');
+    const id = cod.slice(0, i), selo = cod.slice(i + 1); // o selo pode ter '-'
+    if (!/^\d+$/.test(id ?? '') || !conferirSelo('comprovante:' + id, selo ?? '')) falhar('Comprovante não encontrado.', 404);
+    const p = b.one('SELECT titulo_id FROM cobranca_pagamentos WHERE id = ?', [Number(id)]) ?? falhar('Comprovante não encontrado.', 404);
+    if (!p.titulo_id) falhar('Comprovante não encontrado.', 404);
+    const e = b.one('SELECT nome_fantasia, razao_social FROM empresa WHERE id = 1');
+    return reciboTitulo(b, p.titulo_id, e?.nome_fantasia || e?.razao_social || 'loja', true);
+  }, { publica: true });
 
   app.get('/api/cobrancas/:id/imprimir', (req) => {
     const c = b.one('SELECT * FROM cobrancas WHERE id = ?', [Number(req.params.id)]) ?? falhar('Cobrança não encontrada.', 404);

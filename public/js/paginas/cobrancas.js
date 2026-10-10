@@ -3,14 +3,68 @@ import { html, montar, $, acoes, campos, aoEnviar, modal, aviso, confirmar, moed
 import { icone } from '../icones.js';
 import { seletorPessoa } from './pessoas.js';
 let nomeLoja = '';
-function mensagemWhatsapp(c) {
-    const primeiro = String(c.cliente_nome).trim().split(/\s+/)[0];
-    const nome = primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase();
+const FORMAS_TXT = { pix: 'PIX', dinheiro: 'dinheiro', transferencia: 'transferência', boleto: 'boleto', cartao_debito: 'cartão de débito', cartao_credito: 'cartão de crédito' };
+const primeiroNome = (n) => { const p = String(n ?? '').trim().split(/\s+/)[0] ?? ''; return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase(); };
+function textoMensagem(tipo, c, p) {
+    const nome = primeiroNome(c.cliente_nome);
+    const bem = c.veiculo_info || c.descricao;
     const parcela = `${c.parcelas_pagas + 1}/${c.total_parcelas}`;
-    if (c.situacao === 'atrasado') {
-        return `Olá, ${nome}! Aqui é da ${nomeLoja}. Consta em aberto a parcela ${parcela} de ${moeda(c.valor_parcela)} (${c.descricao}), vencida em ${data(c.proximo_vencimento)}. Pode nos enviar o comprovante ou combinar o pagamento por aqui?`;
+    const assinatura = `\n\n*${nomeLoja}* 🚗`;
+    if (tipo === 'confirmado' && p) {
+        const faltam = c.total_parcelas - p.parcela;
+        const forma = FORMAS_TXT[p.forma] ?? p.forma;
+        return `Olá, *${nome}*! 😊\n\nConfirmamos o pagamento da parcela *${p.parcela}/${c.total_parcelas}* do *${bem}*.\n\nValor pago: *${moeda(p.valor)}*\nData: ${data(p.data)}${forma ? `\nForma: ${forma}` : ''}`
+            + (p.comprovante ? `\n\nSeu comprovante:\n${location.origin}${p.comprovante}` : '')
+            + (faltam > 0 ? `\n\nFaltam ${faltam} parcela${faltam === 1 ? '' : 's'}.` : '\n\nCom este pagamento o parcelamento está *quitado*. 🎉')
+            + `\n\nObrigado pela confiança!${assinatura}`;
     }
-    return `Olá, ${nome}! Aqui é da ${nomeLoja}. Lembrete: a parcela ${parcela} de ${moeda(c.valor_parcela)} (${c.descricao}) vence em ${data(c.proximo_vencimento)}. Qualquer dúvida, estamos à disposição.`;
+    if (tipo === 'atraso') {
+        return `Olá, *${nome}*!\n\nConsta em aberto a parcela *${parcela}* do *${bem}*, vencida em *${data(c.proximo_vencimento)}*.\n\nValor: *${moeda(c.valor_parcela)}*\n\nSe já pagou, pode nos enviar o comprovante por aqui. Se precisar, combinamos o pagamento.${assinatura}`;
+    }
+    return `Olá, *${nome}*! 😊\n\nPassando para lembrar que a parcela *${parcela}* do *${bem}* vence em *${data(c.proximo_vencimento)}*.\n\nValor: *${moeda(c.valor_parcela)}*\n\nQualquer dúvida estamos à disposição!${assinatura}`;
+}
+/** Janela para escolher a mensagem e abrir o WhatsApp do cliente. */
+async function janelaWhatsapp(c, inicial) {
+    const det = await api.get(`/api/cobrancas/${c.id}`);
+    const pags = (det.pagamentos ?? []).slice().reverse();
+    const tipos = [
+        ...(c.situacao !== 'quitado' ? [['lembrete', 'Lembrete de vencimento', 'relogio'], ['atraso', 'Aviso de atraso', 'alerta']] : []),
+        ...(pags.length ? [['confirmado', 'Pagamento confirmado', 'check']] : []),
+    ];
+    if (!tipos.length)
+        return aviso('Nada para enviar nesta cobrança.', 'erro');
+    let tipo = inicial?.tipo ?? (c.situacao === 'atrasado' ? 'atraso' : c.situacao === 'quitado' ? 'confirmado' : 'lembrete');
+    if (!tipos.some(([t]) => t === tipo))
+        tipo = tipos[0][0];
+    const m = modal('Enviar mensagem no WhatsApp', html `
+    <p class="mudo pequeno">Para <b>${c.cliente_nome}</b> · ${telefone(c.cliente_telefone)}</p>
+    <p class="rotulo-campo">Tipo de mensagem</p>
+    <div class="chips-msg" role="radiogroup">${tipos.map(([t, r, ic]) => html `<button type="button" class="chip-msg" role="radio" data-tipo="${t}">${icone(ic, 16)}${r}</button>`)}</div>
+    ${pags.length ? html `<div class="campo" id="qual-pag"><label for="sel-pag">Qual pagamento</label><select id="sel-pag">${pags.map((p) => html `<option value="${p.id}" ${inicial?.pagamentoId === p.id ? 'selected' : ''}>Parcela ${p.parcela}/${c.total_parcelas} — ${moeda(p.valor)} em ${data(p.data)}</option>`)}</select></div>` : ''}
+    <label class="rotulo-campo" for="txt-msg">Prévia da mensagem <small class="mudo">(pode editar)</small></label>
+    <textarea id="txt-msg" class="previa-msg" rows="11"></textarea>
+    <div class="acoes-form"><button type="button" class="sec" data-fechar>Cancelar</button><button type="button" class="verde" id="abrir-zap">${icone('mensagem', 16)}Abrir WhatsApp</button></div>`);
+    const txt = $('#txt-msg', m.el);
+    const sel = m.el.querySelector('#sel-pag');
+    const montarMsg = () => {
+        for (const b of m.el.querySelectorAll('.chip-msg'))
+            b.setAttribute('aria-checked', String(b.dataset.tipo === tipo));
+        const qual = m.el.querySelector('#qual-pag');
+        if (qual)
+            qual.hidden = tipo !== 'confirmado';
+        const p = pags.find((x) => String(x.id) === sel?.value) ?? pags[0];
+        txt.value = textoMensagem(tipo, c, p);
+    };
+    m.el.querySelector('.chips-msg').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-tipo]');
+        if (b) {
+            tipo = b.dataset.tipo;
+            montarMsg();
+        }
+    });
+    sel?.addEventListener('change', montarMsg);
+    $('#abrir-zap', m.el).addEventListener('click', () => { window.open(linkWhatsapp(c.cliente_telefone, txt.value), '_blank', 'noopener'); m.fechar(); });
+    montarMsg();
 }
 function linha(c) {
     const pct = Math.round((c.parcelas_pagas / c.total_parcelas) * 100);
@@ -32,7 +86,7 @@ function linha(c) {
     <div class="lc-acoes">
       ${c.situacao !== 'quitado' ? html `${pode('cobrancas.editar') ? html `<button class="icone-btn verde" data-acao="pagar" data-id="${c.id}" title="Registrar pagamento" aria-label="Registrar pagamento de ${c.cliente_nome}">${icone('check')}</button>` : ''}` : ''}
       <button class="icone-btn azul" data-acao="imprimir" data-id="${c.id}" title="Extrato para imprimir" aria-label="Imprimir extrato">${icone('impressora')}</button>
-      ${c.cliente_telefone && c.situacao !== 'quitado' ? html `<a class="icone-btn verde" href="${linkWhatsapp(c.cliente_telefone, mensagemWhatsapp(c))}" target="_blank" rel="noopener" title="Cobrar pelo WhatsApp" aria-label="Enviar mensagem no WhatsApp">${icone('mensagem')}</a>` : ''}
+      ${c.cliente_telefone && (c.situacao !== 'quitado' || c.parcelas_pagas > 0) ? html `<button class="icone-btn verde" data-acao="zap" data-id="${c.id}" title="Mensagem no WhatsApp" aria-label="Enviar mensagem no WhatsApp para ${c.cliente_nome}">${icone('mensagem')}</button>` : ''}
       ${pode('cobrancas.editar') ? html `<button class="icone-btn" data-acao="editar" data-id="${c.id}" title="Editar" aria-label="Editar cobrança">${icone('lapis')}</button>` : ''}
       ${pode('cobrancas.excluir') ? html `<button class="icone-btn perigo" data-acao="excluir" data-id="${c.id}" title="Excluir" aria-label="Excluir cobrança">${icone('lixeira')}</button>` : ''}
     </div>
@@ -81,6 +135,7 @@ export async function render(el) {
             recarregar();
         },
         pagar: (b) => pagamento(porId(b.dataset.id), recarregar),
+        zap: (b) => janelaWhatsapp(porId(b.dataset.id)),
     });
 }
 function pagamento(c, aoTerminar) {
@@ -107,9 +162,19 @@ function pagamento(c, aoTerminar) {
         const det = await api.get(`/api/cobrancas/${c.id}`);
         const novos = (det.pagamentos ?? []).filter((p) => p.titulo_id).slice(-Number(d.quantidade || 1));
         if (novos.length) {
-            modal('Recibo do pagamento', html `<p>Pagamento de <b>${c.cliente_nome}</b> registrado. Imprima ou salve o recibo em PDF para enviar ao cliente.</p>
-        <div class="botoes">${novos.map((p) => html `<a class="botao" href="/api/cobrancas/${c.id}/recibo/${p.id}" target="_blank" rel="noopener">${icone('impressora', 16)}Recibo parcela ${p.parcela}</a>`)}</div>
+            const tel = c.cliente_telefone;
+            const r2 = modal('Pagamento registrado', html `<p>Pagamento de <b>${c.cliente_nome}</b> registrado.${tel ? ' Envie o comprovante para o cliente pelo WhatsApp:' : ' Imprima ou salve o recibo em PDF para enviar ao cliente.'}</p>
+        <div class="botoes">${novos.map((p) => html `${tel ? html `<button type="button" class="verde" data-zap-pag="${p.id}">${icone('mensagem', 16)}Enviar comprovante da parcela ${p.parcela} (${moeda(p.valor)})</button>` : ''}
+          <a class="botao sec" href="/api/cobrancas/${c.id}/recibo/${p.id}" target="_blank" rel="noopener">${icone('impressora', 16)}Recibo parcela ${p.parcela}</a>`)}</div>
+        ${tel ? '' : html `<p class="mudo pequeno">Cadastre o WhatsApp do cliente na cobrança para enviar o comprovante direto.</p>`}
         <div class="acoes-form"><button type="button" class="sec" data-fechar>Fechar</button></div>`);
+            r2.el.addEventListener('click', async (e) => {
+                const b = e.target.closest('[data-zap-pag]');
+                if (!b)
+                    return;
+                r2.fechar();
+                janelaWhatsapp({ ...c, ...det }, { tipo: 'confirmado', pagamentoId: Number(b.dataset.zapPag) });
+            });
         }
     });
 }

@@ -33,7 +33,7 @@ export function htmlRecibo(t, e, pessoa, extra) {
       <div class="linha">${recebimento ? `<b>${esc(loja)}</b>${e.cnpj ? `<br>CNPJ ${docFmt(e.cnpj)}` : ''}` : `<b>${esc(nomePessoa)}</b><br>Recebedor`}</div></div>
     ${extra.emitidoPor ? `<p class="rodape">Emitido por ${esc(extra.emitidoPor)} em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })}</p>` : ''}
   </section>`;
-    return pagina(`Recibo ${extra.numero} — ${nomePessoa}`, `<div class="folha">${via('Via do cliente')}<div class="corte">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>${via('Via da loja')}</div>`, `
+    return pagina(`Recibo ${extra.numero} — ${nomePessoa}`, extra.unicaVia ? `<div class="folha">${via('Comprovante do cliente')}</div>` : `<div class="folha">${via('Via do cliente')}<div class="corte">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>${via('Via da loja')}</div>`, `
 .via{page-break-inside:avoid}
 .valor-caixa{float:right;border:2px solid #f97316;border-radius:8px;padding:4px 14px;text-align:right;margin:0 0 8px 14px}
 .valor-caixa span{display:block;font-size:7.5pt;color:#6b7487}.valor-caixa b{font-size:14pt}

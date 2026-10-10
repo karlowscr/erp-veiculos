@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -20,6 +20,16 @@ export function iniciarSegredo(arquivo: string): void {
     writeFileSync(arquivo, randomBytes(32).toString('hex'), { mode: 0o600 });
   }
   chave = Buffer.from(readFileSync(arquivo, 'utf8').trim(), 'hex');
+}
+
+/** Selo curto (HMAC) para links públicos que não podem ser adivinhados, ex.: comprovante. */
+export function seloLink(texto: string): string {
+  return createHmac('sha256', k()).update(texto).digest('base64url').slice(0, 22);
+}
+export function conferirSelo(texto: string, selo: string): boolean {
+  const certo = Buffer.from(seloLink(texto));
+  const dado = Buffer.from(String(selo));
+  return dado.length === certo.length && timingSafeEqual(dado, certo);
 }
 
 function k(): Buffer {
