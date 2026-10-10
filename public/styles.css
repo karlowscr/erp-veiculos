@@ -287,6 +287,16 @@ details.dados-novo summary { cursor: pointer; font-weight: 600; color: var(--lar
 .pagamento { display: grid; grid-template-columns: 1.3fr 1fr .5fr 1fr auto; gap: .5rem; align-items: start; margin-bottom: .6rem; }
 .pagamento .banco { grid-column: 1 / -1; }
 .conferencia { font-size: .93rem; margin: .9rem 0; }
+.conta { display: grid; gap: .25rem; max-width: 420px; background: var(--fundo); border: 1px solid var(--linha); border-radius: var(--raio); padding: .7rem .9rem; }
+.conta-linha { display: flex; justify-content: space-between; gap: 1rem; color: var(--tinta-2); }
+.conta-linha b { color: var(--tinta); font-variant-numeric: tabular-nums; }
+.conta-linha.total { border-top: 1px solid var(--linha); padding-top: .35rem; margin-top: .15rem; color: var(--tinta); font-weight: 600; }
+.conta-linha.total b { font-size: 1.05rem; }
+.conta-status { margin: .55rem 0 0; font-weight: 600; }
+.conta-status.ok { color: var(--verde); }
+.conta-status.falta { color: var(--amarelo); }
+.conta-status.passou { color: var(--vermelho); }
+.conta-status .link { font-weight: 600; margin-left: .3rem; }
 .conferencia .ok { color: var(--verde); font-weight: 600; }
 .conferencia .falta { color: var(--vermelho); font-weight: 600; }
 

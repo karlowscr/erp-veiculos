@@ -55,7 +55,7 @@ function linhaPagamento(i: number, forma = 'pix', valor = '') {
     <button type="button" class="link" data-rem-pag>Remover</button></div>`;
 }
 
-function ligarPagamentos(raiz: HTMLElement, papelBanco: boolean, aoMudar: () => void) {
+function ligarPagamentos(raiz: HTMLElement, papelBanco: boolean, aoMudar: () => void, restante: () => number = () => 0) {
   let n = 0;
   const area = $('.pagamentos', raiz);
   const ajustar = (div: HTMLElement) => {
@@ -68,17 +68,30 @@ function ligarPagamentos(raiz: HTMLElement, papelBanco: boolean, aoMudar: () => 
       banco.dataset.ok = '1';
     }
   };
+  // Linha nova já vem com o que falta receber (o usuário pode mudar)
   const adicionar = (forma?: string, valor?: string) => {
-    area.insertAdjacentHTML('beforeend', linhaPagamento(n++, forma, valor).s);
-    ajustar(area.lastElementChild as HTMLElement);
+    const falta = restante();
+    const auto = valor === undefined;
+    area.insertAdjacentHTML('beforeend', linhaPagamento(n++, forma, valor ?? (falta > 0 ? falta.toFixed(2) : '')).s);
+    const nova = area.lastElementChild as HTMLElement;
+    if (auto) nova.dataset.auto = '1';
+    ajustar(nova);
     aoMudar();
   };
   raiz.querySelector('[data-add-pag]')!.addEventListener('click', () => adicionar());
+  // "Completar com o que falta": soma o que falta na última linha sem valor, ou cria uma linha
+  raiz.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement).closest('[data-completar]')) return;
+    const falta = restante();
+    if (falta <= 0) return;
+    const vazia = $$<HTMLInputElement>('.pagamento [name=valor]', area).reverse().find((i) => !Number(i.value));
+    if (vazia) { vazia.value = falta.toFixed(2); aoMudar(); } else adicionar();
+  });
   area.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).matches('[data-rem-pag]')) { (e.target as HTMLElement).closest('.pagamento')!.remove(); aoMudar(); }
   });
   area.addEventListener('change', (e) => { const d = (e.target as HTMLElement).closest<HTMLElement>('.pagamento'); if (d) ajustar(d); aoMudar(); });
-  area.addEventListener('input', aoMudar);
+  area.addEventListener('input', (e) => { (e.target as HTMLElement).closest<HTMLElement>('.pagamento')?.removeAttribute('data-auto'); aoMudar(); });
   return { adicionar };
 }
 
@@ -90,6 +103,21 @@ function lerPagamentos(raiz: HTMLElement) {
       pessoa_id: (d.querySelector('.banco input[type=hidden]') as HTMLInputElement | null)?.value || null,
     };
   });
+}
+
+/** Quadro que explica a conta: preço, abatimentos, quanto falta ou passou. */
+function resumoPagamento(alvo: HTMLElement, partes: [string, number][], total: number, pago: number, quem: string) {
+  const dif = Math.round((total - pago) * 100) / 100;
+  const estado = total <= 0 ? (pago ? html`<p class="conta-status falta">Informe o preço para conferir os pagamentos.</p>` : '') : dif === 0
+    ? html`<p class="conta-status ok">Tudo certo: os pagamentos fecham o valor.</p>`
+    : dif > 0
+      ? html`<p class="conta-status falta">Falta informar ${moeda(dif)}. <button type="button" class="link" data-completar>Completar com o que falta</button></p>`
+      : html`<p class="conta-status passou">Os pagamentos passaram ${moeda(-dif)} do total. Diminua algum valor ou confira o preço${partes.length > 1 ? ' e a troca' : ''}.</p>`;
+  alvo.innerHTML = html`<div class="conta">
+    ${partes.map(([r, v]) => html`<div class="conta-linha"><span>${r}</span><b>${v < 0 ? '− ' + moeda(-v) : moeda(v)}</b></div>`)}
+    <div class="conta-linha total"><span>${quem}</span><b>${moeda(Math.max(0, total))}</b></div>
+    <div class="conta-linha"><span>Pagamentos informados</span><b>${moeda(pago)}</b></div>
+  </div>${estado}`.s;
 }
 
 // ---------- Nova venda ----------
@@ -129,7 +157,7 @@ async function novaVenda(el: HTMLElement) {
         <div data-troca>${formVeiculoHtml()}</div></div>
     </section>
     <section class="bloco"><h2>Pagamento</h2>
-      <div class="pagamentos"><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div>
+      <div class="pagamentos" data-ignorar><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div>
       <button type="button" class="sec" data-add-pag>Adicionar forma de pagamento</button>
       <p class="conferencia" aria-live="polite"></p>
       ${campos([{ nome: 'obs', rotulo: 'Observações', tipo: 'area', largura: 4 }])}
@@ -143,15 +171,28 @@ async function novaVenda(el: HTMLElement) {
   let docTroca = '';
   ligarLeitorDocumento($('#troca [data-leitor]', el), $('[data-troca]', el), (l) => { docTroca = l.documento; });
   const selVeic = $<HTMLSelectElement>('#f_veic', el);
-  const conferir = () => {
+  const valores = () => {
     const d = lerForm(f);
-    const final = Number(d.valor || 0) - Number(d.desconto || 0);
+    const preco = Number(d.valor || 0), desconto = Number(d.desconto || 0);
     const troca = $<HTMLInputElement>('#tem-troca', el).checked ? Number(($('[name=valor_troca]', el) as HTMLInputElement).value || 0) : 0;
-    const pago = lerPagamentos(el).reduce((s, p) => s + (p.valor || 0), 0);
-    const falta = Math.round((final - troca - pago) * 100) / 100;
-    $('.conferencia', el).innerHTML = html`Valor final <b>${moeda(final)}</b>${troca ? html`, troca ${moeda(troca)}` : ''}, pagamentos ${moeda(pago)}. ${final <= 0 ? '' : falta === 0 ? html`<span class="ok">Fechado.</span>` : html`<span class="falta">${falta > 0 ? 'Falta' : 'Sobra'} ${moeda(Math.abs(falta))}.</span>`}`.s;
+    const receber = Math.round((preco - desconto - troca) * 100) / 100;
+    return { preco, desconto, troca, receber };
   };
-  const pags = ligarPagamentos(el, true, conferir);
+  const restante = () => {
+    const pago = lerPagamentos(el).reduce((s, p) => s + (p.valor || 0), 0);
+    return Math.max(0, Math.round((valores().receber - pago) * 100) / 100);
+  };
+  const conferir = () => {
+    const { preco, desconto, troca, receber } = valores();
+    // Uma única linha preenchida automaticamente acompanha o valor da venda
+    const linhas = $$<HTMLElement>('.pagamento', el);
+    if (linhas.length === 1 && linhas[0].dataset.auto && receber > 0) (linhas[0].querySelector('[name=valor]') as HTMLInputElement).value = receber.toFixed(2);
+    const pago = lerPagamentos(el).reduce((s, p) => s + (p.valor || 0), 0);
+    resumoPagamento($('.conferencia', el), [
+      ['Preço do veículo', preco], ...(desconto ? [['Desconto', -desconto] as [string, number]] : []), ...(troca ? [['Carro da troca', -troca] as [string, number]] : []),
+    ], receber, pago, 'O cliente paga');
+  };
+  const pags = ligarPagamentos(el, true, conferir, restante);
   const aoVeiculo = () => {
     const o = selVeic.selectedOptions[0];
     if (!o?.value) return;
@@ -209,7 +250,7 @@ async function novaEntrada(el: HTMLElement, tipo: 'compra' | 'consignacao') {
     </section>
     <section class="bloco"><h2>Veículo</h2>${leitorDocumentoHtml()}<div data-veic>${formVeiculoHtml()}</div></section>
     ${compra ? html`<section class="bloco"><h2>Pagamento ao vendedor</h2><p class="mudo">Sem formas de pagamento, o sistema gera uma conta a pagar com vencimento na data da compra.</p>
-      <div class="pagamentos"><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div><button type="button" class="sec" data-add-pag>Adicionar forma de pagamento</button><p class="conferencia"></p></section>` : ''}
+      <div class="pagamentos" data-ignorar><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div><button type="button" class="sec" data-add-pag>Adicionar forma de pagamento</button><p class="conferencia"></p></section>` : ''}
     <section class="bloco">${campos([{ nome: 'obs', rotulo: 'Observações', tipo: 'area', largura: 4 }])}
       ${pode('notas.emitir') ? html`<label class="nota-auto"><input type="checkbox" id="emitir-notas" checked><span><b>Emitir a NF-e de entrada ao concluir</b><small>${compra ? 'Nota de compra do veículo usado.' : 'Nota de entrada em consignação.'}</small></span></label>` : ''}</section>
     <div class="acoes-form"><a class="botao sec" href="#/negociacoes">Voltar</a><button type="submit">${compra ? 'Concluir compra' : 'Concluir consignação'}</button></div>
@@ -219,13 +260,19 @@ async function novaEntrada(el: HTMLElement, tipo: 'compra' | 'consignacao') {
   let docVeic = '';
   ligarLeitorDocumento($('[data-leitor]', el), $('[data-veic]', el), (l) => { docVeic = l.documento; });
   if (compra) {
+    const restanteCompra = () => {
+      const valor = Number(($('[name=valor]', el) as HTMLInputElement).value || 0);
+      const pago = lerPagamentos(el).reduce((s, p) => s + (p.valor || 0), 0);
+      return Math.max(0, Math.round((valor - pago) * 100) / 100);
+    };
     const conferir = () => {
       const valor = Number(($('[name=valor]', el) as HTMLInputElement).value || 0);
       const pago = lerPagamentos(el).reduce((s, p) => s + (p.valor || 0), 0);
+      if (pago) return resumoPagamento($('.conferencia', el), [['Valor da compra', valor]], valor, pago, 'A loja paga');
       const falta = Math.round((valor - pago) * 100) / 100;
       $('.conferencia', el).textContent = pago ? (falta === 0 ? 'Pagamentos fecham com o valor da compra.' : `${falta > 0 ? 'Falta' : 'Sobra'} ${moeda(Math.abs(falta))}.`) : '';
     };
-    ligarPagamentos(el, false, conferir);
+    ligarPagamentos(el, false, conferir, restanteCompra);
     f.addEventListener('input', conferir);
   }
   f.addEventListener('submit', async (ev) => {
