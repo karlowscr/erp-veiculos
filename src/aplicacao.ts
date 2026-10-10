@@ -17,6 +17,7 @@ import { registrarCarnes } from './modulos/carnes.js';
 import { registrarDocumentos } from './modulos/documentos.js';
 import { registrarImportacao } from './modulos/importacao.js';
 import { registrarCatalogo } from './modulos/catalogo.js';
+import { registrarMural } from './modulos/mural.js';
 import { Fipe } from './modulos/fipe.js';
 import type { lerDocumentoVeiculo } from './modulos/leitor-documento.js';
 import type { Transporte } from './fiscal/sefaz.js';
@@ -93,6 +94,7 @@ export function criarAplicacao(op: OpcoesAplicacao) {
   registrarCarnes(app, banco, pastaArquivos);
   registrarDocumentos(app, banco, pastaArquivos);
   registrarImportacao(app, banco, pastaArquivos);
+  registrarMural(app, banco, pastaArquivos);
   const pastaSite = resolve(op.pastaSite ?? join(op.pastaPublica, '..', 'site'));
   registrarCatalogo(app, banco, { pastaFotos, pastaArquivos, caminhoAdmin, urlPublica: app.cfg.urlPublica, pastaSite });
 

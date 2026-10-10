@@ -28,7 +28,7 @@ const LIMITES_MB = {
     'POST /api/carnes': 6, 'PUT /api/carnes/:id': 6,
     'POST /api/documentos': 60, 'PUT /api/documentos/:id': 60,
     'POST /api/empresa/certificado': 2, 'POST /api/empresa/logo': 6, 'POST /api/empresa/assinatura': 2,
-    'POST /api/importar': 60, 'POST /api/contratos/:id/assinar': 2,
+    'POST /api/importar': 60, 'POST /api/mural': 12, 'POST /api/site/mural': 12, 'POST /api/contratos/:id/assinar': 2,
     'POST /api/veiculos/:id/fotos': 12, 'POST /api/veiculos/ler-documento': 16, 'POST /api/veiculos/entrada': 16,
 };
 /**

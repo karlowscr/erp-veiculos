@@ -75,7 +75,7 @@ test('toda rota protegida tem permissão declarada', () => {
             assert.ok(ROTAS[`${r.metodo} ${r.padrao}`], `sem permissão: ${r.metodo} ${r.padrao}`);
     }
     const publicas = app.listarRotas().filter((r) => r.publica).map((r) => r.metodo + ' ' + r.padrao).sort();
-    assert.deepEqual(publicas, ['GET /api/saude', 'GET /api/setup', 'POST /api/login', 'POST /api/logout', 'POST /api/setup', 'POST /api/site/contato']);
+    assert.deepEqual(publicas, ['GET /api/saude', 'GET /api/setup', 'POST /api/login', 'POST /api/logout', 'POST /api/setup', 'POST /api/site/contato', 'POST /api/site/mural']);
 });
 test('cabeçalhos de segurança e área administrativa só no endereço secreto', async () => {
     assert.equal(caminhoAdmin, 'painel-secreto-1');

@@ -24,6 +24,7 @@ export const MODULOS = [
         ] },
     { id: 'site', nome: 'Site (catálogo)', acoes: [
             { id: 'contatos', nome: 'Ver e atender contatos do site', dica: 'Pedidos de visita, troca e financiamento feitos no catálogo' },
+            { id: 'mural', nome: 'Gerenciar o mural dos clientes', dica: 'Publicar fotos e aprovar as que os clientes enviam' },
         ] },
     { id: 'contratos', nome: 'Contratos', acoes: [
             { id: 'ver', nome: 'Ver e imprimir' },
@@ -106,6 +107,10 @@ export const ROTAS = {
     'POST /api/usuarios/:id/encerrar-sessoes': 'usuarios.gerenciar',
     'GET /api/auditoria': 'usuarios.gerenciar',
     'GET /api/site/contatos': 'site.contatos',
+    'GET /api/mural': 'site.mural',
+    'POST /api/mural': 'site.mural',
+    'PUT /api/mural/:id': 'site.mural',
+    'DELETE /api/mural/:id': 'site.mural',
     'POST /api/site/contatos/:id/atendido': 'site.contatos',
     'GET /api/pessoas': SELECIONAR_CLIENTE,
     'GET /api/pessoas/:id': SELECIONAR_CLIENTE,

@@ -17,6 +17,7 @@ import { registrarCarnes } from './modulos/carnes.js';
 import { registrarDocumentos } from './modulos/documentos.js';
 import { registrarImportacao } from './modulos/importacao.js';
 import { registrarCatalogo } from './modulos/catalogo.js';
+import { registrarMural } from './modulos/mural.js';
 import { Fipe } from './modulos/fipe.js';
 const CAMINHO_VALIDO = /^[a-zA-Z0-9][a-zA-Z0-9_-]{5,63}$/;
 const RESERVADOS = ['api', 's', 'fotos', 'fotos-publicas', 'arquivos', 'veiculo', 'marca', 'robots.txt', 'sitemap.xml'];
@@ -71,6 +72,7 @@ export function criarAplicacao(op) {
     registrarCarnes(app, banco, pastaArquivos);
     registrarDocumentos(app, banco, pastaArquivos);
     registrarImportacao(app, banco, pastaArquivos);
+    registrarMural(app, banco, pastaArquivos);
     const pastaSite = resolve(op.pastaSite ?? join(op.pastaPublica, '..', 'site'));
     registrarCatalogo(app, banco, { pastaFotos, pastaArquivos, caminhoAdmin, urlPublica: app.cfg.urlPublica, pastaSite });
     app.pastasEstaticas.push({ prefixo: '/s/', pasta: pastaSite, protegida: false, cache: true }, { prefixo: '/fotos/', pasta: pastaFotos, protegida: true }, { prefixo: '/arquivos/', pasta: pastaArquivos, protegida: true }, { prefixo: `/${caminhoAdmin}/`, pasta: resolve(op.pastaPublica), protegida: false, spa: true, semIndexar: true });

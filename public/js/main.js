@@ -17,11 +17,13 @@ import * as documentos from './paginas/documentos.js';
 import * as usuarios from './paginas/usuarios.js';
 import * as conta from './paginas/conta.js';
 import * as contatos from './paginas/contatos.js';
+import * as mural from './paginas/mural.js';
 const GRUPOS = [
     { nome: '', itens: [{ rota: 'painel', texto: 'Painel', icone: 'painel', pagina: painel }] },
     { nome: 'Vendas', itens: [
             { rota: 'veiculos', texto: 'Veículos', icone: 'carro', pagina: veiculos, perm: ['veiculos.ver', 'veiculos.criar'] },
             { rota: 'contatos', texto: 'Contatos do site', icone: 'mensagem', pagina: contatos, perm: ['site.contatos'], contador: 'contatos_novos' },
+            { rota: 'mural', texto: 'Mural dos clientes', icone: 'camera', pagina: mural, perm: ['site.mural'], contador: 'mural_pendentes' },
             { rota: 'negociacoes', texto: 'Negociações', icone: 'setas', pagina: negociacoes, perm: ['negociacoes.ver'] },
             { rota: 'contratos', texto: 'Contratos', icone: 'arquivo', pagina: contratos, perm: ['contratos.ver'] },
             { rota: 'assinaturas', texto: 'Ass. digital', icone: 'caneta', pagina: assinaturas, perm: ['contratos.ver', 'contratos.assinar'], contador: 'contratos_pendentes' },

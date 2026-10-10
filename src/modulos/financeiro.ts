@@ -145,6 +145,7 @@ export function registrarFinanceiro(app: App, b: Banco): void {
     contratos_pendentes: tem(req.usuario, 'contratos.ver', 'contratos.assinar') ? (b.one('SELECT COUNT(*) AS q FROM contratos WHERE assinado_em IS NULL')!.q as number) : 0,
     cobrancas_atrasadas: tem(req.usuario, 'cobrancas.ver') ? resumoCobrancas(b).atrasados : 0,
     contatos_novos: tem(req.usuario, 'site.contatos') ? (b.one("SELECT COUNT(*) AS q FROM contatos_site WHERE status = 'novo'")!.q as number) : 0,
+    mural_pendentes: tem(req.usuario, 'site.mural') ? (b.one("SELECT COUNT(*) AS q FROM mural_fotos WHERE status = 'pendente'")!.q as number) : 0,
   }));
 
   // ---- Painel ----

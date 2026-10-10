@@ -234,4 +234,215 @@
     }, { threshold: 0.6 });
     nums.forEach(function (el) { obs.observe(el); });
   }
+
+  // ======================= Mural dos clientes =======================
+  var hexRgb = function (h) { h = String(h || '').replace('#', ''); return h.length === 6 ? [0, 2, 4].map(function (i) { return parseInt(h.slice(i, i + 2), 16); }) : [242, 107, 29]; };
+  var misturar = function (a, b, t) { var x = hexRgb(a), y = hexRgb(b); return 'rgb(' + x.map(function (v, i) { return Math.round(v * t + y[i] * (1 - t)); }).join(',') + ')'; };
+  var CORES = (function () {
+    var marca = corpo.dataset.marca || '#f26b1d';
+    var faixa = corpo.dataset.faixa;
+    return {
+      marca: marca,
+      brasa: faixa ? 'rgb(' + hexRgb(faixa).join(',') + ')' : misturar(marca, '#160600', 0.34),
+      brasa2: faixa ? misturar(faixa, marca, 0.72) : misturar(marca, '#2b0c02', 0.72),
+      brilho: misturar(marca, '#ffe9d6', 0.45),
+    };
+  })();
+
+  // ---- Envio da foto pelo cliente ----
+  var jm = document.getElementById('janela-mural');
+  var fm = document.getElementById('form-mural');
+  var fotoEscolhida = null;
+  var previa = fm && fm.querySelector('[data-previa]');
+  var previaVazia = previa ? previa.innerHTML : '';
+  function abrirMural() {
+    if (!jm || typeof jm.showModal !== 'function') return;
+    fm.reset();
+    fotoEscolhida = null;
+    previa.innerHTML = previaVazia;
+    fm.hidden = false;
+    jm.querySelector('#jm-titulo').textContent = 'Sua foto no mural';
+    fm.dataset.inicio = String(Date.now());
+    fm.querySelector('.erro').hidden = true;
+    try { var p = JSON.parse(localStorage.getItem('contato') || '{}'); if (p.nome) fm.nome.value = p.nome; if (p.telefone) fm.telefone.value = p.telefone; } catch (e) { /* sem storage */ }
+    jm.showModal();
+  }
+  document.addEventListener('click', function (ev) { if (ev.target.closest('[data-enviar-foto]')) { ev.preventDefault(); abrirMural(); } });
+  if (jm) jm.addEventListener('click', function (e) { if (e.target === jm) jm.close(); });
+
+  /** Reduz para no máximo 1600 px e converte em JPEG (isso também apaga os dados de localização da foto). */
+  function reduzirFoto(arq) {
+    return createImageBitmap(arq).then(function (bmp) {
+      var esc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * esc); c.height = Math.round(bmp.height * esc);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.86);
+    });
+  }
+  if (fm) {
+    fm.foto.addEventListener('change', function () {
+      var arq = fm.foto.files && fm.foto.files[0];
+      var erro = fm.querySelector('.erro');
+      erro.hidden = true;
+      if (!arq) return;
+      if (arq.size > 25 * 1024 * 1024) { erro.textContent = 'Foto muito grande. Escolha outra.'; erro.hidden = false; return; }
+      previa.innerHTML = '<span class="mural-vazio"><b>Preparando a foto…</b></span>';
+      reduzirFoto(arq).then(function (url) {
+        fotoEscolhida = url;
+        var selo = document.querySelector('.mural-selo');
+        previa.innerHTML = '<span class="mural-quadro"><img src="' + url + '" alt="Prévia da sua foto"></span><small>Toque para trocar a foto</small>';
+        var q = previa.querySelector('.mural-quadro');
+        q.insertAdjacentHTML('beforeend', seloHtml());
+      }).catch(function () {
+        previa.innerHTML = previaVazia;
+        erro.textContent = 'Não foi possível abrir esta foto. Envie em JPG ou PNG.';
+        erro.hidden = false;
+      });
+    });
+    fm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var erro = fm.querySelector('.erro');
+      erro.hidden = true;
+      if (!fotoEscolhida) { erro.textContent = 'Escolha a foto.'; erro.hidden = false; return; }
+      if (!fm.reportValidity()) return;
+      var d = Object.fromEntries(new FormData(fm));
+      var botao = fm.querySelector('button[type=submit]');
+      botao.disabled = true;
+      try { localStorage.setItem('contato', JSON.stringify({ nome: d.nome, telefone: d.telefone })); } catch (er) { /* sem storage */ }
+      fetch('/api/site/mural', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ imagem: fotoEscolhida, nome: d.nome, telefone: d.telefone, veiculo: d.veiculo, cidade: d.cidade, instagram: d.instagram, mensagem: d.mensagem, autorizo: !!d.autorizo, site: d.site, inicio: Number(fm.dataset.inicio) }),
+      }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (r) {
+        botao.disabled = false;
+        if (!r.ok) { erro.textContent = r.j.erro || 'Não foi possível enviar.'; erro.hidden = false; return; }
+        fm.hidden = true;
+        jm.querySelector('#jm-titulo').textContent = 'Foto recebida!';
+        jm.querySelector('.janela-sub').textContent = 'Obrigado! Sua foto aparece no mural assim que a ' + loja + ' aprovar.';
+      }).catch(function () {
+        botao.disabled = false;
+        erro.textContent = 'Sem conexão. Tente de novo.';
+        erro.hidden = false;
+      });
+    });
+  }
+  function seloHtml() {
+    var logo = corpo.dataset.logo, insta = corpo.dataset.insta;
+    var t = function (s) { var x = document.createElement('span'); x.textContent = s; return x.innerHTML; };
+    return '<span class="mural-selo"><span class="mural-logo">' + (logo ? '<img src="' + t(logo) + '" alt="">' : t(loja.charAt(0))) + '</span>' +
+      '<span class="mural-selo-txt"><b>Sou cliente ' + t(loja) + '</b><span>Venha ser também</span></span></span>' +
+      (insta ? '<span class="mural-insta">@' + t(insta) + '</span>' : '');
+  }
+
+  // ---- Imagem para compartilhar (formato story 1080×1920, com o selo da loja) ----
+  function carregar(src) {
+    return new Promise(function (ok, erro) { var i = new Image(); i.onload = function () { ok(i); }; i.onerror = erro; i.src = src; });
+  }
+  function caixa(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+    else { ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  }
+  function cobrir(ctx, img, x, y, w, h) {
+    var esc = Math.max(w / img.width, h / img.height);
+    var dw = img.width * esc, dh = img.height * esc;
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  }
+  function caber(ctx, texto, peso, tam, max) {
+    do { ctx.font = peso + ' ' + tam + "px 'Bricolage Grotesque', system-ui, sans-serif"; tam -= 2; } while (ctx.measureText(texto).width > max && tam > 20);
+  }
+  function gerarArte(foto, nome, detalhes) {
+    var fontes = document.fonts ? Promise.all([document.fonts.load("300 66px 'Bricolage Grotesque'"), document.fonts.load("500 40px 'Bricolage Grotesque'")]).catch(function () {}) : Promise.resolve();
+    var logoSrc = corpo.dataset.logo;
+    return Promise.all([carregar(foto), logoSrc ? carregar(logoSrc).catch(function () { return null; }) : null, fontes]).then(function (r) {
+      var img = r[0], logo = r[1];
+      var W = 1080, H = 1920;
+      var c = document.createElement('canvas'); c.width = W; c.height = H;
+      var ctx = c.getContext('2d');
+      // Fundo em brasa com brilho
+      var g = ctx.createLinearGradient(0, 0, W * 0.3, H);
+      g.addColorStop(0, CORES.brasa2); g.addColorStop(0.65, CORES.brasa); g.addColorStop(1, CORES.brasa);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      var rg = ctx.createRadialGradient(W / 2, H * 0.78, 0, W / 2, H * 0.78, W * 0.75);
+      rg.addColorStop(0, CORES.marca); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 0.75; ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+      // Cabeçalho: logo + nome da loja
+      ctx.save(); caixa(ctx, 72, 70, 96, 96, 48); ctx.fillStyle = logo ? 'rgba(255,255,255,.92)' : CORES.marca; ctx.fill(); ctx.clip();
+      if (logo) { var e2 = Math.min(76 / logo.width, 76 / logo.height); ctx.drawImage(logo, 120 - logo.width * e2 / 2, 118 - logo.height * e2 / 2, logo.width * e2, logo.height * e2); }
+      else { ctx.fillStyle = '#fff'; ctx.font = "700 48px 'Bricolage Grotesque', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(loja.charAt(0), 120, 120); }
+      ctx.restore();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+      caber(ctx, loja, 500, 46, 760); ctx.fillText(loja, 196, 120);
+      // Foto em cartão arredondado
+      var fx = 60, fy = 220, fw = 960, fh = 1240;
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 60; ctx.shadowOffsetY = 30; caixa(ctx, fx, fy, fw, fh, 56); ctx.fillStyle = '#000'; ctx.fill(); ctx.restore();
+      ctx.save(); caixa(ctx, fx, fy, fw, fh, 56); ctx.clip(); cobrir(ctx, img, fx, fy, fw, fh);
+      var sombra = ctx.createLinearGradient(0, fy + fh * 0.55, 0, fy + fh); sombra.addColorStop(0, 'rgba(0,0,0,0)'); sombra.addColorStop(1, 'rgba(0,0,0,.45)');
+      ctx.fillStyle = sombra; ctx.fillRect(fx, fy, fw, fh); ctx.restore();
+      // Etiqueta com o nome do cliente
+      var etiqueta = nome + (detalhes ? ', ' + detalhes : '');
+      caber(ctx, etiqueta, 500, 34, 780);
+      var lw = ctx.measureText(etiqueta).width + 56;
+      ctx.save(); caixa(ctx, 96, 256, lw, 72, 36); ctx.fillStyle = 'rgba(20,10,5,.45)'; ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#fff'; ctx.fillText(etiqueta, 124, 293);
+      // Selo de vidro "Sou cliente"
+      var bx = 96, by = 1300, bw = 888, bh = 220;
+      ctx.save(); caixa(ctx, bx, by, bw, bh, 48); ctx.clip();
+      if ('filter' in ctx) { ctx.filter = 'blur(26px)'; cobrir(ctx, img, fx, fy, fw, fh); ctx.filter = 'none'; }
+      ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fillRect(bx, by, bw, bh);
+      var tom = ctx.createLinearGradient(0, by, 0, by + bh); tom.addColorStop(0, 'rgba(0,0,0,0)'); tom.addColorStop(1, 'rgba(0,0,0,.18)'); ctx.fillStyle = tom; ctx.fillRect(bx, by, bw, bh);
+      ctx.restore();
+      ctx.save(); caixa(ctx, bx + 1, by + 1, bw - 2, bh - 2, 47); ctx.strokeStyle = 'rgba(255,255,255,.38)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+      ctx.fillStyle = '#fff'; caber(ctx, 'Sou cliente ' + loja, 300, 68, bw - 96); ctx.fillText('Sou cliente ' + loja, bx + 48, by + 74);
+      ctx.fillStyle = CORES.brilho; caber(ctx, 'Venha ser também', 300, 68, bw - 96); ctx.fillText('Venha ser também', bx + 48, by + 152);
+      // Instagram da loja
+      var insta = corpo.dataset.insta;
+      if (insta) {
+        var txt = '@' + insta;
+        ctx.font = "400 44px 'Bricolage Grotesque', system-ui, sans-serif";
+        var tw = ctx.measureText(txt).width, ix = (W - (tw + 76)) / 2, iy = 1650;
+        ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 5;
+        caixa(ctx, ix, iy - 28, 56, 56, 16); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ix + 28, iy, 13, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ix + 43, iy - 15, 3.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+        ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(txt, ix + 76, iy + 2);
+      }
+      // Endereço do site
+      ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = "400 32px 'Bricolage Grotesque', system-ui, sans-serif";
+      ctx.fillText(corpo.dataset.site || location.host, W / 2, 1830);
+      return new Promise(function (ok) { c.toBlob(ok, 'image/jpeg', 0.9); });
+    });
+  }
+
+  var arte = document.querySelector('[data-arte]');
+  if (arte) {
+    var arteBlob = null;
+    var arquivoNome = 'sou-cliente-' + loja.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-') + '.jpg';
+    gerarArte(arte.dataset.foto, arte.dataset.nome, arte.dataset.detalhes).then(function (blob) {
+      if (!blob) return;
+      arteBlob = blob;
+      arte.innerHTML = '<img class="arte-img" src="' + URL.createObjectURL(blob) + '" alt="Imagem para compartilhar: ' + arte.dataset.nome + ', cliente ' + loja + '">';
+    }).catch(function () { /* fica a foto com o selo em HTML */ });
+    var baixar = function () {
+      if (!arteBlob) return;
+      var a = document.createElement('a'); a.href = URL.createObjectURL(arteBlob); a.download = arquivoNome; document.body.appendChild(a); a.click(); a.remove();
+    };
+    var compartilhar = document.querySelector('[data-arte-compartilhar]');
+    if (compartilhar) compartilhar.addEventListener('click', function () {
+      var texto = 'Sou cliente ' + loja + '! Venha ser também: ' + arte.dataset.url;
+      if (arteBlob) {
+        var f = new File([arteBlob], arquivoNome, { type: 'image/jpeg' });
+        var dados = { files: [f], title: 'Sou cliente ' + loja, text: texto };
+        if (navigator.canShare && navigator.canShare(dados)) { navigator.share(dados).catch(function () {}); return; }
+      }
+      if (navigator.share) { navigator.share({ title: 'Sou cliente ' + loja, text: texto, url: arte.dataset.url }).catch(function () {}); return; }
+      baixar();
+    });
+    var b2 = document.querySelector('[data-arte-baixar]');
+    if (b2) b2.addEventListener('click', baixar);
+  }
+  var copiar = document.querySelector('[data-copiar-link]');
+  if (copiar) copiar.addEventListener('click', function () {
+    if (navigator.clipboard) navigator.clipboard.writeText(copiar.dataset.copiarLink).then(function () { copiar.querySelector('span').textContent = 'Link copiado'; });
+  });
 })();

@@ -8,6 +8,7 @@ import { esc, moeda, telFmt, nomeLoja, enderecoLoja, urlLogo } from '../impressa
 import { falhar, texto, numero } from '../util/comum.js';
 import { soDigitos } from '../util/validacao.js';
 import { auditar } from './auth.js';
+import { fotosMural } from './mural.js';
 /**
  * Catálogo público (vitrine) servido em "/". Gerado no servidor: abre rápido
  * no celular, aparece no Google e com foto no WhatsApp. Não há link nem
@@ -79,7 +80,51 @@ const J = {
     carteira: ic('<rect x="3" y="6" width="18" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M16 15h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'),
     grafico: ic('<path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'),
     mais: ic('<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'),
+    camera: ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>'),
+    baixar: ic('<path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'),
+    link: ic('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'),
 };
+/** Selo "Sou cliente" sobreposto à foto (o mesmo desenho vai para a imagem de compartilhar). */
+function seloCliente(e) {
+    const loja = nomeLoja(e);
+    const logo = urlLogo(e);
+    return `<span class="mural-selo"><span class="mural-logo">${logo ? `<img src="${esc(logo)}" alt="">` : esc(loja.slice(0, 1))}</span>
+    <span class="mural-selo-txt"><b>Sou cliente ${esc(loja)}</b><span>Venha ser também</span></span></span>
+    ${e.instagram ? `<span class="mural-insta">${I.insta}@${esc(e.instagram)}</span>` : ''}`;
+}
+function fotoMural(m, e) {
+    const detalhes = [m.veiculo, m.cidade].filter(Boolean).join(', ');
+    return `<figure class="mural-item">
+    <a class="mural-quadro" href="/mural/${m.id}" aria-label="Foto de ${esc(m.nome)}">
+      <img src="/mural-fotos/${esc(m.arquivo)}" alt="${esc(m.nome)}, cliente ${esc(nomeLoja(e))}" loading="lazy" decoding="async">
+      ${seloCliente(e)}
+    </a>
+    <figcaption><b>${esc(m.nome)}</b>${detalhes ? `<span>${esc(detalhes)}</span>` : ''}${m.mensagem ? `<q>${esc(m.mensagem)}</q>` : ''}</figcaption>
+  </figure>`;
+}
+/** Janela para o cliente enviar a própria foto. */
+function janelaMural(e) {
+    const loja = nomeLoja(e);
+    return `<dialog class="janela janela-mural" id="janela-mural" aria-labelledby="jm-titulo">
+  <form method="dialog" class="janela-fechar"><button aria-label="Fechar">×</button></form>
+  <h2 id="jm-titulo">Sua foto no mural</h2>
+  <p class="janela-sub">Mostre o seu carro! A foto aparece no mural depois que a ${esc(loja)} aprovar.</p>
+  <form id="form-mural" class="form-contato" novalidate>
+    <label class="mural-escolher"><input type="file" name="foto" accept="image/jpeg,image/png,image/webp,image/heic" required>
+      <span class="mural-previa" data-previa><span class="mural-vazio">${J.camera}<b>Escolher foto</b><small>JPG ou PNG, de preferência você com o carro</small></span></span></label>
+    <div class="duas"><label>Seu nome<input name="nome" required minlength="2" maxlength="60" autocomplete="name"></label>
+      <label>WhatsApp<input name="telefone" required inputmode="tel" autocomplete="tel" placeholder="(85) 9 9999-9999"></label></div>
+    <div class="duas"><label>Carro que comprou<input name="veiculo" maxlength="60" placeholder="Ex.: Honda HR-V"></label>
+      <label>Cidade<input name="cidade" maxlength="60"></label></div>
+    <label>Seu Instagram (opcional)<input name="instagram" maxlength="40" placeholder="@seuperfil"></label>
+    <label>Recado (opcional)<input name="mensagem" maxlength="200" placeholder="Como foi comprar com a gente?"></label>
+    <label class="mel" aria-hidden="true">Site<input name="site" tabindex="-1" autocomplete="off"></label>
+    <label class="autorizo"><input type="checkbox" name="autorizo" required> Autorizo a ${esc(loja)} a publicar esta foto, meu nome e o recado no mural do site. O WhatsApp não aparece no site.</label>
+    <p class="erro" role="alert" hidden></p>
+    <button type="submit" class="btn largo">${J.camera}<span>Enviar foto</span></button>
+  </form>
+</dialog>`;
+}
 /** Divide o título em duas linhas (a segunda sai em outro tom, como nas referências). */
 function duasLinhas(t) {
     const s = t.trim();
@@ -126,7 +171,7 @@ ${logo ? `<link rel="icon" href="${esc(logo)}">` : ''}
 <link rel="stylesheet" href="/s/catalogo.css?v=${versaoSite.css}">
 <style>:root{--marca:${cor}${coresExtras(e)}}</style>
 ${op.jsonLd ? `<script type="application/ld+json">${JSON.stringify(op.jsonLd).replace(/</g, '\\u003c')}</script>` : ''}
-</head><body class="${op.classe ?? ''}" data-whats="${esc(whatsapp(e))}" data-loja="${esc(loja)}">
+</head><body class="${op.classe ?? ''}" data-whats="${esc(whatsapp(e))}" data-loja="${esc(loja)}" data-marca="${esc(cor)}" data-faixa="${esc(/^#[0-9a-fA-F]{6}$/.test(e.cor_faixa ?? '') ? e.cor_faixa : '')}" data-insta="${esc(e.instagram || '')}" data-logo="${esc(logo || '')}" data-site="${esc(origem.replace(/^https?:\/\//, ''))}">
 <a class="pular" href="#principal">Ir para o conteúdo</a>
 <header class="topo">
   <nav class="pilula" aria-label="Menu">
@@ -135,6 +180,7 @@ ${op.jsonLd ? `<script type="application/ld+json">${JSON.stringify(op.jsonLd).re
       <a href="/#estoque">Estoque</a>
       <a href="/#vantagens">Como comprar</a>
       <a href="/#troca">Troca</a>
+      <a href="/mural">Mural</a>
       <a href="/#duvidas">Dúvidas</a>
     </span>
     <a href="/?salvos=1" class="salvos" data-salvos hidden aria-label="Veículos salvos">${I.coracao}<b data-salvos-qtd>0</b></a>
@@ -167,6 +213,7 @@ ${op.barraFixa ?? (zap ? `<a class="zap-flutuante" href="${esc(zap)}" target="_b
     <small>Seu pedido chega à loja e a conversa abre no WhatsApp com tudo preenchido.</small>
   </form>
 </dialog>
+${janelaMural(e)}
 <script src="/s/catalogo.js?v=${versaoSite.js}" defer></script>
 </body></html>`;
 }
@@ -378,7 +425,13 @@ async function inicio(ctx, req, e) {
     ${titulo2('Ficou alguma dúvida?', 'h2', ' id="t-duv"')}
     <div class="acordeao">${duvidas.map(([p, r], i) => `<details${i === 0 ? ' open' : ''}><summary>${esc(p)}<span class="mais" aria-hidden="true">${J.mais}</span></summary><p>${esc(r)}</p></details>`).join('')}</div>
   </div></section>`;
-    const corpo = `${capaHtml}${estoque}${!filtrando && pagina === 1 ? vantagens + troca + faq + faixaChamada(e, `Encontrou o seu? Fale com a ${loja}`, 'Tire dúvidas, peça mais fotos ou combine uma visita. A equipe responde pelo WhatsApp.') : ''}`;
+    const mural = fotosMural(ctx.b, 6);
+    const muralHtml = mural.length ? `<section class="mural-secao" id="mural" aria-labelledby="t-mural"><div class="faixa">
+    <div class="mural-cab">${titulo2(`Mural dos clientes ${loja}`, 'h2', ' id="t-mural"')}
+      <div class="mural-cab-acoes"><a class="btn-sec" href="/mural">Ver o mural</a><button type="button" class="btn" data-enviar-foto>${J.camera}Enviar minha foto</button></div></div>
+    <div class="mural-grade">${mural.map((m) => fotoMural(m, e)).join('')}</div>
+  </div></section>` : '';
+    const corpo = `${capaHtml}${estoque}${!filtrando && pagina === 1 ? vantagens + troca + muralHtml + faq + faixaChamada(e, `Encontrou o seu? Fale com a ${loja}`, 'Tire dúvidas, peça mais fotos ou combine uma visita. A equipe responde pelo WhatsApp.') : ''}`;
     return layout(ctx, req, e, {
         titulo: `${loja}: ${titulo}`, descricao: `${qtd} veículo${qtd === 1 ? '' : 's'} à venda na ${loja}${e.municipio ? ' em ' + e.municipio : ''}. Fotos, preços, simulação de financiamento e avaliação do seu carro pelo WhatsApp.`,
         imagem: capa?.foto ? `/fotos-publicas/${capa.foto}` : lista[0]?.foto ? `/fotos-publicas/${lista[0].foto}` : urlLogo(e) || undefined,
@@ -507,6 +560,71 @@ async function detalhe(ctx, req, e, id, res) {
         },
     });
 }
+async function paginaMural(ctx, req, e) {
+    const loja = nomeLoja(e);
+    const pagina = Math.max(1, Math.min(200, Math.floor(Number(req.query.get('pagina') ?? 1)) || 1));
+    const total = ctx.b.one("SELECT COUNT(*) AS q FROM mural_fotos WHERE status = 'aprovado'").q;
+    const lista = fotosMural(ctx.b, POR_PAGINA, (pagina - 1) * POR_PAGINA);
+    const paginas = Math.ceil(total / POR_PAGINA);
+    const corpo = `<section class="capa capa-mural" aria-labelledby="t-mural">
+      <div class="capa-brilho" aria-hidden="true"></div>
+      <div class="capa-topo">
+        <h1 class="titulo-duplo grande" id="t-mural">Mural dos clientes <span>${esc(loja)}</span></h1>
+        <p class="capa-sub">${total ? `${total} cliente${total === 1 ? '' : 's'} já ${total === 1 ? 'mostrou' : 'mostraram'} o carro novo por aqui.` : 'Comprou com a gente? Seja o primeiro a aparecer aqui.'} Envie a sua foto e compartilhe nas redes.</p>
+        <div class="capa-acoes"><button type="button" class="btn-claro" data-enviar-foto>${J.camera}<span>Enviar minha foto</span></button><a class="btn-vidro" href="/#estoque">Ver o estoque</a></div>
+      </div>
+    </section>
+    <section class="mural-secao"><div class="faixa">
+      ${lista.length ? `<div class="mural-grade">${lista.map((m) => fotoMural(m, e)).join('')}</div>`
+        : `<div class="vazio"><h3>O mural está esperando você</h3><p>Envie a foto com o seu carro. Ela aparece aqui depois que a loja aprovar.</p><button type="button" class="btn" data-enviar-foto>${J.camera}<span>Enviar minha foto</span></button></div>`}
+      ${paginas > 1 ? `<nav class="paginas" aria-label="Páginas">${pagina > 1 ? `<a href="/mural?pagina=${pagina - 1}" rel="prev">Anterior</a>` : ''}<span>Página ${pagina} de ${paginas}</span>${pagina < paginas ? `<a href="/mural?pagina=${pagina + 1}" rel="next">Próxima</a>` : ''}</nav>` : ''}
+    </div></section>
+    ${faixaChamada(e, `Quer aparecer aqui? Escolha seu carro`, `Veja o estoque da ${loja} e fale com a equipe pelo WhatsApp.`)}`;
+    return layout(ctx, req, e, {
+        titulo: `Mural dos clientes | ${loja}`, descricao: `Fotos de quem já comprou na ${loja}. Envie a sua e compartilhe.`,
+        imagem: lista[0] ? `/mural-fotos/${lista[0].arquivo}` : urlLogo(e) || undefined,
+        canonico: pagina > 1 ? `/mural?pagina=${pagina}` : '/mural', corpo, classe: 'pg-mural',
+    });
+}
+async function paginaFotoMural(ctx, req, e, id) {
+    const m = ctx.b.one("SELECT id, arquivo, nome, cidade, veiculo, mensagem, instagram FROM mural_fotos WHERE id = ? AND status = 'aprovado'", [id]);
+    if (!m)
+        return null;
+    const loja = nomeLoja(e);
+    const origem = origemSite(ctx, req);
+    const url = `${origem}/mural/${m.id}`;
+    const detalhes = [m.veiculo, m.cidade].filter(Boolean).join(', ');
+    const outras = ctx.b.all("SELECT id, arquivo, nome, cidade, veiculo, mensagem, instagram FROM mural_fotos WHERE status = 'aprovado' AND id <> ? ORDER BY destaque DESC, aprovado_em DESC LIMIT 3", [id]);
+    const corpo = `<div class="faixa mural-foto-pg">
+    <a class="voltar" href="/mural">${I.voltar}Mural dos clientes</a>
+    <div class="mural-foto-grade">
+      <div class="arte" data-arte data-foto="/mural-fotos/${esc(m.arquivo)}" data-nome="${esc(m.nome)}" data-detalhes="${esc(detalhes)}" data-url="${esc(url)}">
+        <figure class="mural-item grande"><div class="mural-quadro"><img src="/mural-fotos/${esc(m.arquivo)}" alt="${esc(m.nome)}, cliente ${esc(loja)}" fetchpriority="high">${seloCliente(e)}</div></figure>
+      </div>
+      <aside class="resumo mural-resumo">
+        <p class="ano">Cliente ${esc(loja)}</p>
+        <h1 class="titulo-duplo">${esc(m.nome)}${detalhes ? ` <span>${esc(detalhes)}</span>` : ''}</h1>
+        ${m.mensagem ? `<blockquote class="recado">${esc(m.mensagem)}</blockquote>` : ''}
+        <div class="resumo-acoes">
+          <button type="button" class="btn largo" data-arte-compartilhar>${I.compartilhar}<span>Compartilhar imagem</span></button>
+          <div class="duas-acoes">
+            <button type="button" class="btn-sec" data-arte-baixar>${J.baixar}Baixar</button>
+            <button type="button" class="btn-sec" data-copiar-link="${esc(url)}">${J.link}<span>Copiar link</span></button>
+          </div>
+          <p class="mudo-site">A imagem sai no formato de story (Instagram e status do WhatsApp), já com o selo da loja.</p>
+        </div>
+        <hr>
+        <p class="loja-info">Também é cliente? <button type="button" class="link" data-enviar-foto>Envie sua foto</button></p>
+      </aside>
+    </div>
+    ${outras.length ? `<section class="outros">${titulo2('Mais clientes no mural')}<div class="mural-grade">${outras.map((o) => fotoMural(o, e)).join('')}</div></section>` : ''}
+  </div>
+  ${faixaChamada(e, `Seja também cliente ${loja}`, 'Veja o estoque e fale com a equipe pelo WhatsApp.')}`;
+    return layout(ctx, req, e, {
+        titulo: `${m.nome} é cliente ${loja}`, descricao: `${m.nome}${detalhes ? ` (${detalhes})` : ''} no mural dos clientes da ${loja}.${m.mensagem ? ` "${m.mensagem}"` : ''}`,
+        imagem: `/mural-fotos/${m.arquivo}`, canonico: `/mural/${m.id}`, corpo, classe: 'pg-mural-foto',
+    });
+}
 async function enviarArquivo(res, arquivo, cache) {
     const tipo = TIPOS_IMG[extname(arquivo).toLowerCase()];
     if (!tipo)
@@ -628,6 +746,25 @@ export function registrarCatalogo(app, b, op) {
                 res.end();
                 return true;
             }
+            if (c === '/mural') {
+                html(res, 200, await paginaMural(ctx, req, e));
+                return true;
+            }
+            const mu = /^\/mural\/(\d+)$/.exec(c);
+            if (mu) {
+                const r = await paginaFotoMural(ctx, req, e, Number(mu[1]));
+                html(res, r ? 200 : 404, r ?? layout(ctx, req, e, { titulo: `Foto não encontrada | ${nomeLoja(e)}`, descricao: '', canonico: '/mural', corpo: `<div class="faixa vazio pagina-vazia"><h1>Esta foto não está mais no mural</h1><p>Veja as outras fotos dos clientes.</p><a class="btn" href="/mural">Ver o mural</a></div>` }));
+                return true;
+            }
+            const mf = /^\/mural-fotos\/(mural-[0-9a-f]{16}\.(?:jpg|png|webp))$/.exec(c);
+            if (mf) {
+                const ok = b.one("SELECT 1 FROM mural_fotos WHERE arquivo = ? AND status = 'aprovado'", [mf[1]]);
+                if (ok && (await enviarArquivo(res, join(op.pastaArquivos, 'mural', mf[1]), 'public, max-age=86400')))
+                    return true;
+                res.writeHead(404);
+                res.end();
+                return true;
+            }
             if (c === '/robots.txt') {
                 res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
                 res.end(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${origemSite(ctx, req)}/sitemap.xml\n`);
@@ -637,7 +774,7 @@ export function registrarCatalogo(app, b, op) {
                 const o = origemSite(ctx, req);
                 const vs = b.all(`SELECT v.id, v.marca, v.modelo, v.versao, v.ano_mod FROM veiculos v WHERE ${SITUACAO_PUBLICA}`);
                 res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8' });
-                res.end(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${esc(o)}/</loc></url>${vs.map((v) => `<url><loc>${esc(`${o}/veiculo/${slug(v)}`)}</loc></url>`).join('')}</urlset>`);
+                res.end(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${esc(o)}/</loc></url><url><loc>${esc(o)}/mural</loc></url>${vs.map((v) => `<url><loc>${esc(`${o}/veiculo/${slug(v)}`)}</loc></url>`).join('')}</urlset>`);
                 return true;
             }
             return false;

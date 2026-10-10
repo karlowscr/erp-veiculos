@@ -340,6 +340,62 @@ a.vidro:hover .circulo { background: #fff; color: var(--marca-escura); transform
 .zap-flutuante svg { width: 30px; height: 30px; }
 .barra-fixa { display: none; }
 
+/* ---- Mural dos clientes ---- */
+.mural-secao { padding: 96px 0 56px; }
+.pg-mural .mural-secao { padding-top: 64px; }
+.capa-mural { padding-bottom: 88px; }
+.mural-cab { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px 32px; flex-wrap: wrap; margin-bottom: 36px; }
+.mural-cab-acoes { display: flex; gap: 10px; flex-wrap: wrap; }
+.mural-grade { columns: 3 290px; column-gap: 20px; }
+.mural-item { break-inside: avoid; margin: 0 0 24px; }
+.mural-quadro { position: relative; display: block; border-radius: 28px; overflow: hidden; background: var(--brasa); isolation: isolate; text-decoration: none; }
+.mural-quadro img { width: 100%; height: auto; display: block; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
+a.mural-quadro:hover img { transform: scale(1.035); }
+.mural-quadro::after { content: ''; position: absolute; inset: 50% 0 0 0; z-index: 0; pointer-events: none; background: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--brasa) 80%, transparent)); }
+.mural-selo { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 20px; color: #fff;
+  background: var(--vidro-fundo); border: 1px solid var(--vidro-borda); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
+.mural-logo { width: 42px; height: 42px; border-radius: 50%; flex: none; display: grid; place-items: center; overflow: hidden; background: var(--marca); color: #fff; font-weight: 700; }
+.mural-logo:has(img) { background: rgb(255 255 255 / .92); padding: 6px; }
+.mural-logo img { width: 100%; height: 100%; object-fit: contain; }
+.mural-selo-txt { min-width: 0; line-height: 1.15; }
+.mural-selo-txt b { display: block; font-weight: 500; font-size: 16px; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mural-selo-txt span { font-weight: 300; font-size: 15px; color: var(--brilho); }
+.mural-insta { position: absolute; top: 12px; right: 12px; z-index: 1; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgb(0 0 0 / .34); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #fff; font-size: 13px; }
+.mural-insta svg { width: 15px; height: 15px; }
+.mural-item figcaption { padding: 12px 6px 0; display: flex; flex-direction: column; gap: 2px; }
+.mural-item figcaption b { font-weight: 500; font-size: 17px; letter-spacing: -.01em; }
+.mural-item figcaption span { color: var(--suave); font-size: 14px; }
+.mural-item figcaption q { color: #4b3f37; font-size: 15px; margin-top: 6px; }
+.mural-item.grande { margin: 0; }
+.mural-item.grande .mural-selo { left: 18px; right: 18px; bottom: 18px; padding: 14px 18px; }
+.mural-item.grande .mural-selo-txt b { font-size: 20px; }
+.mural-item.grande .mural-selo-txt span { font-size: 18px; }
+
+.mural-foto-pg { padding-top: 104px; padding-bottom: 40px; }
+.mural-foto-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: 28px; align-items: start; justify-content: center; }
+.arte { display: grid; justify-items: center; }
+.arte-img { width: 100%; max-width: 460px; border-radius: 30px; box-shadow: 0 30px 70px rgb(33 22 15 / .22); }
+.recado { margin: 0 0 8px; padding: 14px 18px; border-left: 3px solid var(--marca); background: var(--nevoa); border-radius: 0 16px 16px 0; color: #4b3f37; }
+.mudo-site { margin: 4px 0 0; color: var(--suave); font-size: 14px; text-align: center; }
+.mural-resumo hr { border: 0; border-top: 1px solid var(--linha); margin: 22px 0 0; }
+.link { border: 0; background: none; padding: 0; color: var(--marca-escura); text-decoration: underline; cursor: pointer; font: inherit; }
+
+/* Janela de envio */
+.janela-mural { width: min(540px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
+.mural-escolher { position: relative; display: block; cursor: pointer; }
+.mural-escolher input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; z-index: 2; }
+.mural-escolher:focus-within .mural-previa { outline: 3px solid var(--marca); outline-offset: 2px; }
+.mural-previa { display: grid; gap: 6px; text-align: center; color: var(--suave); }
+.mural-previa small { font-size: 13px; }
+.mural-previa .mural-quadro { max-height: 360px; }
+.mural-previa .mural-quadro img { max-height: 360px; object-fit: cover; }
+.mural-vazio { display: grid; place-items: center; gap: 4px; aspect-ratio: 16 / 9; border: 1.5px dashed color-mix(in oklab, var(--marca) 40%, var(--linha)); border-radius: 22px; background: var(--nevoa); padding: 20px; }
+.mural-vazio svg { width: 34px; height: 34px; color: var(--marca); }
+.mural-vazio b { color: var(--tinta); font-weight: 500; }
+.autorizo { flex-direction: row !important; align-items: flex-start; gap: 10px !important; font-size: 14px; line-height: 1.45; }
+.autorizo input { width: 20px; height: 20px !important; margin-top: 2px; flex: none; accent-color: var(--marca); }
+
+.mural-previa .mural-selo { text-align: left; }
 /* ---- Tablet ---- */
 @media (max-width: 1020px) {
   .atalhos { display: none; }
@@ -352,6 +408,7 @@ a.vidro:hover .circulo { background: #fff; color: var(--marca-escura); transform
   .bento { grid-template-columns: 1fr 1fr; }
   .bento-a { grid-row: auto; grid-column: 1 / -1; }
   .resumo { position: static; }
+  .mural-foto-grade { grid-template-columns: 1fr; }
 }
 /* ---- Celular ---- */
 @media (max-width: 620px) {
