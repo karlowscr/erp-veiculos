@@ -573,6 +573,9 @@ export const MIGRACOES: string[] = [
   CREATE INDEX ix_mural_status ON mural_fotos(status, destaque, aprovado_em);
   CREATE INDEX ix_mural_ip ON mural_fotos(ip, criado_em);
   `,
+  /* 9 — agenda de visitas do catálogo (dias, horários e datas fechadas, em JSON) */ `
+  ALTER TABLE empresa ADD COLUMN agenda TEXT NOT NULL DEFAULT '';
+  `,
 ];
 
 
@@ -609,4 +612,5 @@ export const MIGRACOES_PG: Record<number, string> = {
   CREATE INDEX ix_mural_status ON mural_fotos(status, destaque, aprovado_em);
   CREATE INDEX ix_mural_ip ON mural_fotos(ip, criado_em);
   ALTER TABLE mural_fotos ENABLE ROW LEVEL SECURITY;`,
+  9: `ALTER TABLE empresa ADD COLUMN agenda TEXT NOT NULL DEFAULT '';`,
 };

@@ -5,7 +5,7 @@ const TIPOS = {
     interesse: ['Interesse', 'azul'], visita: ['Agendar visita', 'verde'], troca: ['Avaliar troca', 'laranja'], financiamento: ['Financiamento', 'amarelo'],
 };
 const ROTULOS = {
-    t_modelo: 'Carro do cliente', t_ano: 'Ano', t_km: 'Km', t_quitado: 'Situação', v_dia: 'Dia', v_periodo: 'Período',
+    t_modelo: 'Carro do cliente', t_ano: 'Ano', t_km: 'Km', t_quitado: 'Situação', v_dia: 'Dia', v_hora: 'Horário', v_periodo: 'Período',
     entrada: 'Entrada', prazo: 'Prazo', parcela: 'Parcela estimada', financiado: 'Valor financiado',
 };
 /** Pedidos feitos pelos clientes no catálogo do site. */
@@ -16,12 +16,14 @@ export async function render(el) {
   ${cabecalhoPagina('Contatos do site', 'Pedidos de visita, troca e financiamento feitos pelos clientes no catálogo')}
   <div class="filtros">${segmentos('status', [['novo', 'Para atender'], ['atendido', 'Atendidos'], ['todos', 'Todos']], filtro)}</div>
   ${lista.length ? html `<div class="grade-cartoes">${lista.map((c) => {
-        const [rot, cor] = TIPOS[c.tipo] ?? [c.tipo, 'neutro'];
         let dados = {};
         try {
             dados = JSON.parse(c.dados || '{}');
         }
         catch { /* vazio */ }
+        const salvou = dados.salvou === 'sim';
+        delete dados.salvou;
+        const [rot, cor] = salvou ? ['Salvou no site', 'azul'] : TIPOS[c.tipo] ?? [c.tipo, 'neutro'];
         if (dados.v_dia)
             dados.v_dia = dados.v_dia.split('-').reverse().join('/');
         const zap = `https://wa.me/${c.telefone.length <= 11 ? '55' + c.telefone : c.telefone}?text=${encodeURIComponent(`Olá, ${c.nome.split(' ')[0]}! Recebemos seu pedido pelo site.`)}`;

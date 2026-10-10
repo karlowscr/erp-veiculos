@@ -22,8 +22,16 @@ export async function render(el: HTMLElement, params: string[]) {
   return loja(el, topo);
 }
 
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const AGENDA_PADRAO = {
+  dias: [{ aberto: false, inicio: '08:00', fim: '12:00' }, ...[1, 2, 3, 4, 5].map(() => ({ aberto: true, inicio: '08:00', fim: '18:00' })), { aberto: true, inicio: '08:00', fim: '12:00' }],
+  intervalo: 60, capacidade: 1, fechados: [] as string[],
+};
+
 async function catalogo(el: HTMLElement, topo: Html) {
   const e = await api.get('/api/empresa');
+  let agenda = AGENDA_PADRAO;
+  try { if (e.agenda) agenda = { ...AGENDA_PADRAO, ...JSON.parse(e.agenda) }; } catch { /* padrão */ }
   const admin = pode('config.editar');
   const site = location.origin + '/';
   montar(el, html`${topo}
@@ -53,12 +61,41 @@ async function catalogo(el: HTMLElement, topo: Html) {
       </div>
       <div class="previa-cores" aria-hidden="true">
         <div class="previa-faixa"><b>Seminovos revisados</b><span>na sua cidade</span><i class="previa-vidro">R$ 64.900</i></div>
-        <div class="previa-claro"><b>Estoque completo</b><span class="previa-botao">Buscar</span><span class="previa-selo">7% abaixo da FIPE</span></div>
+        <div class="previa-claro"><b>Estoque completo</b><span class="previa-botao">Buscar</span><span class="previa-selo">Chegou agora</span></div>
       </div>
       <p class="mudo pequeno">As cores novas aparecem no catálogo em até 1 minuto depois de salvar.</p>`)}
+    ${secao('calendario', 'verde', 'Horários de visita', 'O cliente vê no site os dias e horários livres e já escolhe o dele', html`
+      <div class="agenda-config">
+        ${agenda.dias.map((d, i) => html`<div class="agenda-linha">
+          <label class="check"><input type="checkbox" name="ag_aberto_${i}" ${d.aberto ? 'checked' : ''}> <b>${DIAS_SEMANA[i]}</b></label>
+          <input type="time" name="ag_inicio_${i}" value="${d.inicio}" aria-label="${DIAS_SEMANA[i]}: abre às" step="1800">
+          <span class="mudo">até</span>
+          <input type="time" name="ag_fim_${i}" value="${d.fim}" aria-label="${DIAS_SEMANA[i]}: fecha às" step="1800">
+        </div>`)}
+      </div>
+      <div class="grade-form">${campos([
+        { nome: 'ag_intervalo', rotulo: 'Duração de cada visita', tipo: 'select', largura: 2, opcoes: [['30', '30 minutos'], ['60', '1 hora'], ['90', '1h30'], ['120', '2 horas']] },
+        { nome: 'ag_capacidade', rotulo: 'Clientes no mesmo horário', tipo: 'numero', largura: 2, attrs: 'min="1" max="10" step="1"' },
+      ], { ag_intervalo: String(agenda.intervalo), ag_capacidade: agenda.capacidade })}</div>
+      <div class="agenda-fechados">
+        <p><b>Dias sem atendimento</b> <span class="mudo">(feriados, folgas)</span></p>
+        <div class="linha-add"><input type="date" id="ag_novo_fechado" min="${new Date().toISOString().slice(0, 10)}"><button type="button" class="sec" data-acao="add-fechado">Adicionar</button></div>
+        <div class="chips-fechados" id="ag_fechados"></div>
+      </div>
+      <p class="mudo pequeno">Horários que um cliente já pediu pelo site ficam como reservados. Atenda os pedidos em "Contatos do site".</p>`)}
     ${admin ? html`<div class="acoes-form fixo"><button type="submit">Salvar catálogo</button></div>` : ''}
   </form></div>`);
   const f = $<HTMLFormElement>('#f-cat', el);
+  // Datas fechadas (lista editável)
+  const fechados = new Set<string>(agenda.fechados);
+  const desenharFechados = () => {
+    $('#ag_fechados', el).innerHTML = [...fechados].sort().map((d) => html`<span class="chip-fechado">${d.split('-').reverse().join('/')}${admin ? html`<button type="button" data-acao="rem-fechado" data-data="${d}" aria-label="Remover ${d}">×</button>` : ''}</span>`.s).join('') || '<span class="mudo pequeno">Nenhum</span>';
+  };
+  desenharFechados();
+  acoes(f, {
+    'add-fechado': () => { const i = $<HTMLInputElement>('#ag_novo_fechado', el); if (i.value) { fechados.add(i.value); i.value = ''; desenharFechados(); } },
+    'rem-fechado': (b) => { fechados.delete(b.dataset.data!); desenharFechados(); },
+  });
   if (!admin) f.querySelectorAll('input, select, textarea').forEach((i) => ((i as HTMLInputElement).disabled = true));
   // Cores: "automática" limpa o campo (o site calcula a partir da cor principal); prévia ao vivo
   const previa = f.querySelector<HTMLElement>('.previa-cores');
@@ -87,6 +124,11 @@ async function catalogo(el: HTMLElement, topo: Html) {
   atualizarPrevia();
   aoEnviar(f, async (d) => {
     for (const n of ['cor_faixa', 'cor_fundo']) if (f.querySelector<HTMLInputElement>(`[data-auto=${n}]`)!.checked) d[n] = '';
+    d.agenda = {
+      dias: [0, 1, 2, 3, 4, 5, 6].map((i) => ({ aberto: !!d[`ag_aberto_${i}`], inicio: d[`ag_inicio_${i}`], fim: d[`ag_fim_${i}`] })),
+      intervalo: Number(d.ag_intervalo), capacidade: Number(d.ag_capacidade), fechados: [...fechados],
+    };
+    for (const k of Object.keys(d)) if (k.startsWith('ag_')) delete d[k];
     await api.put('/api/empresa', d);
     aviso('Catálogo salvo.');
     window.dispatchEvent(new Event('loja-alterada'));

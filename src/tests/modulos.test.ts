@@ -184,3 +184,22 @@ test('mural: envio do cliente com travas, aprovação e foto sem dados de locali
   assert.equal((await req('POST', '/api/site/mural', { ...envio, imagem: jpeg(4) })).status, 429);
   assert.equal((await ok('GET', '/api/contadores')).mural_pendentes, 2);
 });
+
+test('agenda de visitas: horários no site, reserva e horário lotado', async () => {
+  const todos = [0, 1, 2, 3, 4, 5, 6].map(() => ({ aberto: true, inicio: '08:00', fim: '10:00' }));
+  assert.equal((await req('PUT', '/api/empresa', { agenda: { dias: todos.map((d) => ({ ...d, fim: '07:00' })), intervalo: 60, capacidade: 1 } })).status, 400, 'fim antes do início');
+  const amanha = new Date(Date.now() - 3 * 3600_000 + 86400_000).toISOString().slice(0, 10);
+  const depois = new Date(Date.now() - 3 * 3600_000 + 2 * 86400_000).toISOString().slice(0, 10);
+  await ok('PUT', '/api/empresa', { agenda: { dias: todos, intervalo: 60, capacidade: 1, fechados: [depois] } });
+  const lerAgenda = async () => JSON.parse(/<script type="application\/json" id="agenda-dados">(.*?)<\/script>/.exec((await req('GET', '/')).txt)![1]);
+  let ag = await lerAgenda();
+  const dia = ag.find((d: any) => d.data === amanha);
+  assert.deepEqual(dia.horarios, [{ hora: '08:00', livre: true }, { hora: '09:00', livre: true }]);
+  assert.equal(ag.find((d: any) => d.data === depois).aberto, false, 'feriado fechado');
+  const pedido = { tipo: 'visita', nome: 'Pedro', telefone: '85988887777', dados: { v_dia: amanha, v_hora: '08:00' } };
+  await ok('POST', '/api/site/contato', pedido);
+  assert.equal((await req('POST', '/api/site/contato', { ...pedido, nome: 'Outro' })).status, 409, 'horário lotado');
+  assert.equal((await req('POST', '/api/site/contato', { ...pedido, dados: { v_dia: depois, v_hora: '08:00' } })).status, 409, 'dia fechado');
+  ag = await lerAgenda();
+  assert.equal(ag.find((d: any) => d.data === amanha).horarios[0].livre, false);
+});

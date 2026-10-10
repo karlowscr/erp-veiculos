@@ -9,13 +9,13 @@ import { falhar, texto, numero } from '../util/comum.js';
 import { soDigitos } from '../util/validacao.js';
 import { auditar } from './auth.js';
 import { fotosMural } from './mural.js';
+import { agendaProximosDias, horarioDisponivel } from './agenda.js';
 /**
  * Catálogo público (vitrine) servido em "/". Gerado no servidor: abre rápido
  * no celular, aparece no Google e com foto no WhatsApp. Não há link nem
  * menção à área administrativa.
  *
- * Recursos para o cliente: destaque do pátio, comparação com a FIPE (só
- * quando o preço está abaixo), agendar visita,
+ * Recursos para o cliente: destaque do pátio, agendar visita,
  * avaliar a troca, salvar favoritos. Os pedidos chegam na área da loja em
  * "Contatos do site" e abrem a conversa no WhatsApp.
  */
@@ -47,13 +47,6 @@ function whatsapp(e) {
     return d;
 }
 const linkWhats = (e, msg) => { const n = whatsapp(e); return n ? `https://wa.me/${n}?text=${encodeURIComponent(msg)}` : ''; };
-/** Quanto o anúncio está abaixo da FIPE (só conta quando está abaixo ou igual). */
-function abaixoFipe(v) {
-    if (!v.mostrar_preco || !v.fipe_valor || !v.preco_venda || v.preco_venda > v.fipe_valor)
-        return null;
-    const dif = v.fipe_valor - v.preco_venda;
-    return { dif, pct: Math.round((dif / v.fipe_valor) * 1000) / 10 };
-}
 function origemSite(ctx, req) {
     if (ctx.urlPublica)
         return ctx.urlPublica.replace(/\/$/, '');
@@ -213,13 +206,27 @@ ${op.barraFixa ?? (zap ? `<a class="zap-flutuante" href="${esc(zap)}" target="_b
     <small>Seu pedido chega à loja e a conversa abre no WhatsApp com tudo preenchido.</small>
   </form>
 </dialog>
+<dialog class="janela" id="janela-salvar" aria-labelledby="js-titulo">
+  <form method="dialog" class="janela-fechar"><button aria-label="Fechar">×</button></form>
+  <h2 id="js-titulo">Salvar este carro</h2>
+  <p class="janela-sub">Deixe seu WhatsApp e a ${esc(loja)} fala com você sobre ele. Os carros salvos ficam guardados neste aparelho.</p>
+  <form id="form-salvar" class="form-contato" novalidate>
+    <p class="agenda-escolhido" data-salvar-carro></p>
+    <label>Seu nome<input name="nome" required minlength="2" maxlength="80" autocomplete="name"></label>
+    <label>WhatsApp com DDD<input name="telefone" required inputmode="tel" autocomplete="tel" placeholder="(85) 9 9999-9999"></label>
+    <label class="mel" aria-hidden="true">Site<input name="site" tabindex="-1" autocomplete="off"></label>
+    <p class="erro" role="alert" hidden></p>
+    <button type="submit" class="btn largo">${I.coracao}<span>Salvar e deixar meu contato</span></button>
+    <button type="button" class="btn-sec largo" data-so-salvar>Só salvar</button>
+  </form>
+</dialog>
 ${janelaMural(e)}
+<script type="application/json" id="agenda-dados">${JSON.stringify(agendaProximosDias(ctx.b, e)).replace(/</g, '\\u003c')}</script>
 <script src="/s/catalogo.js?v=${versaoSite.js}" defer></script>
 </body></html>`;
 }
 function cartao(v) {
     const titulo = `${cap(v.marca)} ${cap(v.modelo)}`;
-    const fipe = abaixoFipe(v);
     return `<article class="cartao" data-id="${v.id}">
     <a class="cartao-link" href="/veiculo/${esc(slug(v))}">
       <div class="foto">${v.foto ? `<img src="/fotos-publicas/${esc(v.foto)}" alt="${esc(titulo)} ${v.ano_mod}" loading="lazy" decoding="async">` : '<div class="sem-foto"></div>'}
@@ -232,16 +239,15 @@ function cartao(v) {
         <ul class="dados"><li>${esc(km(v.km))}</li><li>${esc(NOMES_CAMBIO[v.cambio] ?? cap(v.cambio))}</li><li>${esc(NOMES_COMB[v.combustivel] ?? cap(v.combustivel))}</li></ul>
         <div class="preco-linha">
           <div><p class="preco ${v.mostrar_preco ? '' : 'consulte'}">${v.mostrar_preco ? reais(v.preco_venda) : 'Consulte o preço'}</p>
-          ${fipe && fipe.pct >= 1 ? `<span class="fipe-selo" title="Preço ${reais(fipe.dif)} abaixo da tabela FIPE">${fipe.pct.toLocaleString('pt-BR')}% abaixo da FIPE</span>` : ''}</div>
           <span class="circulo" aria-hidden="true">${J.seta}</span>
         </div>
       </div>
     </a>
-    <button type="button" class="favoritar" data-favoritar="${v.id}" aria-pressed="false" aria-label="Salvar ${esc(titulo)}">${I.coracao}</button>
+    <button type="button" class="favoritar" data-favoritar="${v.id}" data-nome="${esc(`${titulo} ${v.ano_mod}`)}" aria-pressed="false" aria-label="Salvar ${esc(titulo)}">${I.coracao}</button>
   </article>`;
 }
 const COLUNAS_CARTAO = `v.id, v.marca, v.modelo, v.versao, v.ano_fab, v.ano_mod, v.km, v.cambio, v.combustivel, v.preco_venda, v.mostrar_preco, v.destaque, v.situacao,
-  v.fipe_valor, v.tipo, (julianday('now') - julianday(v.data_entrada)) < 8 AS novo_no_patio,
+  v.tipo, (julianday('now') - julianday(v.data_entrada)) < 8 AS novo_no_patio,
   (SELECT arquivo FROM veiculo_fotos f WHERE f.veiculo_id = v.id ORDER BY ordem, id LIMIT 1) AS foto,
   (SELECT COUNT(*) FROM veiculo_fotos f WHERE f.veiculo_id = v.id) AS qtd_fotos`;
 /** Faixas de preço oferecidas como atalhos. */
@@ -299,8 +305,7 @@ async function inicio(ctx, req, e) {
     const filtrando = !!(busca || marca || tipo || faixa || salvos);
     const total = ctx.b.one(`SELECT COUNT(*) AS q FROM veiculos v WHERE ${where.join(' AND ')}`, p).q;
     const lista = ctx.b.all(`SELECT ${COLUNAS_CARTAO} FROM veiculos v WHERE ${where.join(' AND ')} ORDER BY ${ordens[ordem]} LIMIT ? OFFSET ?`, [...p, POR_PAGINA, (pagina - 1) * POR_PAGINA]);
-    const todos = ctx.b.one(`SELECT COUNT(*) AS q, SUM(CASE WHEN v.tipo = 'moto' THEN 1 ELSE 0 END) AS motos, SUM(CASE WHEN v.tipo <> 'moto' THEN 1 ELSE 0 END) AS carros,
-    MAX(CASE WHEN v.mostrar_preco = 1 AND v.fipe_valor > 0 AND v.preco_venda > 0 AND v.preco_venda <= v.fipe_valor THEN (v.fipe_valor - v.preco_venda) * 100.0 / v.fipe_valor END) AS maior_desconto
+    const todos = ctx.b.one(`SELECT COUNT(*) AS q, SUM(CASE WHEN v.tipo = 'moto' THEN 1 ELSE 0 END) AS motos, SUM(CASE WHEN v.tipo <> 'moto' THEN 1 ELSE 0 END) AS carros
     FROM veiculos v WHERE ${SITUACAO_PUBLICA}`) ?? {};
     const marcas = ctx.b.all(`SELECT MIN(v.marca) AS marca, COUNT(*) AS q FROM veiculos v WHERE ${SITUACAO_PUBLICA} GROUP BY upper(v.marca) ORDER BY MIN(v.marca)`);
     // Destaque da capa: o marcado como destaque, senão o que chegou por último
@@ -323,13 +328,12 @@ async function inicio(ctx, req, e) {
     const opcao = (v, rot, atual) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(rot)}</option>`;
     const paginas = Math.ceil(total / POR_PAGINA);
     const qtd = Number(todos.q ?? 0);
-    const desconto = Number(todos.maior_desconto ?? 0);
+    const clientesMural = ctx.b.one("SELECT COUNT(*) AS q FROM mural_fotos WHERE status = 'aprovado'").q;
     const zapGeral = linkWhats(e, `Olá! Vim pelo site da ${loja}.`);
     const sobre = e.catalogo_sobre || 'Todos com procedência conferida e documentação em dia.';
     // ---- Capa: título grande, o veículo em destaque no centro e cartões de vidro em volta ----
     const capaHtml = !filtrando && pagina === 1 ? (() => {
         const t = capa ? `${cap(capa.marca)} ${cap(capa.modelo)}` : '';
-        const fipe = capa ? abaixoFipe(capa) : null;
         const [l1, l2] = duasLinhas(titulo);
         return `<section class="capa${capa ? '' : ' sem-destaque'}" aria-label="${esc(loja)}">
       <div class="capa-brilho" aria-hidden="true"></div>
@@ -345,7 +349,6 @@ async function inicio(ctx, req, e) {
           <span>${esc(t)} ${capa.ano_fab}/${capa.ano_mod}</span>
           <span class="vidro-acao"><span class="btn-mini-claro">Ver fotos e detalhes</span><span class="circulo">${J.seta}</span></span>
         </a>
-        ${fipe && fipe.pct >= 1 ? `<div class="vidro vidro-b"><b class="vidro-num">${fipe.pct.toLocaleString('pt-BR')}%</b><span>abaixo da tabela FIPE<br>${reais(fipe.dif)} de diferença</span></div>` : ''}
         <div class="vidro vidro-c"><b class="vidro-num">${esc(km(capa.km).replace(' km', ''))}<small> km</small></b><span>${esc(NOMES_CAMBIO[capa.cambio] ?? cap(capa.cambio))}, ${esc(NOMES_COMB[capa.combustivel] ?? cap(capa.combustivel))}</span></div>
       </div>` : `<div class="capa-acoes"><a class="btn-claro" href="#estoque">Ver o estoque</a>${zapGeral ? `<a class="btn-vidro" href="${esc(zapGeral)}" target="_blank" rel="noopener">${I.whats}<span>Falar com a loja</span></a>` : ''}</div>`}
     </section>`;
@@ -381,13 +384,13 @@ async function inicio(ctx, req, e) {
       <h2 class="titulo-duplo claro" id="t-vant">Comprar aqui<span>é simples assim</span></h2>
       <div class="numeros">
         <div>${contador(qtd)}<span>veículo${qtd === 1 ? '' : 's'} no pátio agora</span></div>
-        ${desconto >= 1 ? `<div>${contador(Math.floor(desconto * 10) / 10, { casas: 1, sufixo: '%' })}<span>o maior desconto sobre a FIPE no estoque</span></div>` : ''}
+        ${marcas.length > 1 ? `<div>${contador(marcas.length)}<span>marcas diferentes no estoque</span></div>` : ''}
+        ${clientesMural ? `<div>${contador(clientesMural)}<span>cliente${clientesMural === 1 ? '' : 's'} no mural</span></div>` : ''}
       </div>
     </div>
     <div class="bento">
       <a class="vidro bento-a" href="#troca">${I.troca}<b>Seu carro na troca</b><span>Conte qual é o seu carro, a loja avalia e você recebe a proposta pelo WhatsApp, para vender ou usar como entrada.</span><span class="circulo">${J.seta}</span></a>
-      <button type="button" class="vidro" data-abrir="visita">${I.calendario}<b>Agende uma visita</b><span>Escolha o dia e o período. A loja confirma com você.</span><span class="circulo">${J.seta}</span></button>
-      <a class="vidro" href="#estoque">${J.grafico}<b>Comparação com a FIPE</b><span>Quando o preço está abaixo da tabela, mostramos quanto.</span><span class="circulo">${J.seta}</span></a>
+      <a class="vidro" href="#visita">${I.calendario}<b>Agende uma visita</b><span>Veja os dias e horários livres e escolha o seu. A loja confirma pelo WhatsApp.</span><span class="circulo">${J.seta}</span></a>
       <a class="vidro" href="/?salvos=1#estoque">${I.coracao}<b>Salve e compare</b><span>Toque no coração para guardar os carros que você gostou.</span><span class="circulo">${J.seta}</span></a>
       ${zapGeral ? `<a class="vidro" href="${esc(zapGeral)}" target="_blank" rel="noopener">${I.whats}<b>Atendimento no WhatsApp</b><span>${esc(e.horario || 'Fale direto com a equipe da loja.')}</span><span class="circulo">${J.seta}</span></a>` : ''}
     </div>
@@ -398,7 +401,7 @@ async function inicio(ctx, req, e) {
       ${titulo2('Venda ou troque seu carro', 'h2', ' id="titulo-troca"')}
       <ol class="passos">
         <li><b>Conte qual é o carro</b><span>Modelo, ano e quilometragem.</span></li>
-        <li><b>A loja avalia</b><span>Com base na FIPE e no estado do veículo.</span></li>
+        <li><b>A loja avalia</b><span>Pelo estado e pelo valor de mercado do veículo.</span></li>
         <li><b>Você recebe a proposta</b><span>No WhatsApp, para vender ou usar como entrada.</span></li>
       </ol>
     </div>
@@ -414,7 +417,6 @@ async function inicio(ctx, req, e) {
     const duvidas = [
         ['Posso dar meu carro como parte do pagamento?', 'Sim. Preencha a avaliação acima ou toque em "Dar meu carro na troca" na página do veículo. A loja responde com uma proposta.'],
         ['Como agendo uma visita?', `Na página do veículo, toque em "Agendar visita" e escolha o dia e o período.${e.horario ? ` Horário da loja: ${e.horario}.` : ''}${enderecoLoja(e) ? ` Endereço: ${enderecoLoja(e)}.` : ''}`],
-        ['O que significa "abaixo da FIPE"?', 'A tabela FIPE é a referência de preço médio de veículos no Brasil. Quando o preço anunciado está abaixo dela, mostramos a diferença no anúncio.'],
         ['Os preços podem mudar?', 'Os preços anunciados são à vista e sujeitos à disponibilidade. Confirme com a loja antes de fechar negócio.'],
     ];
     const faq = `<section class="duvidas" id="duvidas" aria-labelledby="t-duv"><div class="faixa duvidas-grade">
@@ -427,31 +429,35 @@ async function inicio(ctx, req, e) {
       <div class="mural-cab-acoes"><a class="btn-sec" href="/mural">Ver o mural</a><button type="button" class="btn" data-enviar-foto>${J.camera}Enviar minha foto</button></div></div>
     <div class="mural-grade">${mural.map((m) => fotoMural(m, e)).join('')}</div>
   </div></section>` : '';
-    const corpo = `${capaHtml}${estoque}${!filtrando && pagina === 1 ? vantagens + troca + muralHtml + faq + faixaChamada(e, `Encontrou o seu? Fale com a ${loja}`, 'Tire dúvidas, peça mais fotos ou combine uma visita. A equipe responde pelo WhatsApp.') : ''}`;
+    const mapa = enderecoLoja(e) ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${loja} ${enderecoLoja(e).replace(/ · /g, ', ')}`)}` : '';
+    const carrosVisita = ctx.b.all(`SELECT ${COLUNAS_CARTAO} FROM veiculos v WHERE ${SITUACAO_PUBLICA} ORDER BY v.destaque DESC, v.data_entrada DESC, v.id DESC LIMIT 12`);
+    const visita = `<section class="visita" id="visita" aria-labelledby="t-visita"><div class="faixa visita-grade">
+    <div class="visita-texto">
+      ${titulo2('Agende sua visita', 'h2', ' id="t-visita"')}
+      <p>Os dias e horários livres já aparecem aqui. Escolha o seu e a loja confirma pelo WhatsApp.</p>
+      <ul class="visita-info">
+        ${enderecoLoja(e) ? `<li>${I.local}${mapa ? `<a href="${esc(mapa)}" target="_blank" rel="noopener">${esc(enderecoLoja(e))}</a>` : esc(enderecoLoja(e))}</li>` : ''}
+        ${e.horario ? `<li>${I.relogio}${esc(e.horario)}</li>` : ''}
+      </ul>
+    </div>
+    <div class="agenda-cartao">
+      ${carrosVisita.length ? `<fieldset class="visita-carros"><legend>Qual carro você quer ver? <small>opcional</small></legend>
+        <div class="carros-opcoes">
+          <label class="carro-opcao ainda"><input type="radio" name="visita_carro" value="" checked><span><b>Ainda não sei</b><small>Quero ver as opções</small></span></label>
+          ${carrosVisita.map((c) => `<label class="carro-opcao"><input type="radio" name="visita_carro" value="${c.id}" data-nome="${esc(`${cap(c.marca)} ${cap(c.modelo)} ${c.ano_fab}/${c.ano_mod}`)}">
+            ${c.foto ? `<img src="/fotos-publicas/${esc(c.foto)}" alt="" loading="lazy">` : '<span class="sem-foto"></span>'}<span><b>${esc(`${cap(c.marca)} ${cap(c.modelo)}`)}</b><small>${c.ano_mod}${c.mostrar_preco ? `, ${reais(c.preco_venda)}` : ''}</small></span></label>`).join('')}
+        </div></fieldset>` : ''}
+      <div class="agenda" data-agenda-pagina><p class="agenda-carregando">Carregando os horários…</p></div>
+      <button type="button" class="btn largo" data-agendar disabled>${I.calendario}<span>Escolha um horário</span></button>
+    </div>
+  </div></section>`;
+    const corpo = `${capaHtml}${estoque}${!filtrando && pagina === 1 ? vantagens + troca + visita + muralHtml + faq + faixaChamada(e, `Encontrou o seu? Fale com a ${loja}`, 'Tire dúvidas, peça mais fotos ou combine uma visita. A equipe responde pelo WhatsApp.') : ''}`;
     return layout(ctx, req, e, {
         titulo: `${loja}: ${titulo}`, descricao: `${qtd} veículo${qtd === 1 ? '' : 's'} à venda na ${loja}${e.municipio ? ' em ' + e.municipio : ''}. Fotos, preços e avaliação do seu carro pelo WhatsApp.`,
         imagem: capa?.foto ? `/fotos-publicas/${capa.foto}` : lista[0]?.foto ? `/fotos-publicas/${lista[0].foto}` : urlLogo(e) || undefined,
         canonico: pagina > 1 || filtrando ? link({}).replace('#estoque', '') : '/', corpo, classe: 'pg-inicio',
         jsonLd: { '@context': 'https://schema.org', '@type': 'AutoDealer', name: loja, telephone: e.whatsapp || e.telefone || undefined, address: enderecoLoja(e) || undefined, openingHours: e.horario || undefined },
     });
-}
-/** Mostrador que compara o preço com a FIPE (só aparece quando o preço está abaixo). */
-function mostradorFipe(v) {
-    const f = abaixoFipe(v);
-    if (!f)
-        return '';
-    // Escala de 0% a 20% abaixo; o ponteiro vai para a esquerda quanto mais barato
-    const fr = Math.min(1, f.pct / 20);
-    const ang = Math.PI * (1 - (0.5 + fr * 0.5));
-    const x = 60 + 46 * Math.cos(ang), y = 62 - 46 * Math.sin(ang);
-    return `<div class="mostrador" role="img" aria-label="${f.pct.toLocaleString('pt-BR')}% abaixo da tabela FIPE">
-    <svg viewBox="0 0 120 70" aria-hidden="true">
-      <path d="M10 62a50 50 0 0 1 100 0" class="trilho"/>
-      <path d="M10 62a50 50 0 0 1 50-50" class="faixa-boa"/>
-      <line x1="60" y1="62" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="ponteiro"/><circle cx="60" cy="62" r="4.5" class="eixo"/>
-    </svg>
-    <div><b>${reais(f.dif)} abaixo da FIPE</b><span>Tabela FIPE ${reais(v.fipe_valor)}${v.fipe_referencia ? ` em ${esc(v.fipe_referencia)}` : ''}</span></div>
-  </div>`;
 }
 async function detalhe(ctx, req, e, id, res) {
     const v = ctx.b.one(`SELECT v.* FROM veiculos v WHERE v.id = ? AND ${SITUACAO_PUBLICA}`, [id]);
@@ -496,7 +502,6 @@ async function detalhe(ctx, req, e, id, res) {
         <h1 class="titulo-duplo">${esc(nome)}${v.versao ? `<span>${esc(cap(v.versao))}</span>` : ''}</h1>
         <ul class="dados"><li>${esc(km(v.km))}</li><li>${esc(NOMES_CAMBIO[v.cambio] ?? cap(v.cambio))}</li><li>${esc(NOMES_COMB[v.combustivel] ?? cap(v.combustivel))}</li>${v.cor ? `<li>${esc(cap(v.cor))}</li>` : ''}</ul>
         <p class="preco grande ${v.mostrar_preco ? '' : 'consulte'}">${preco}</p>
-        ${mostradorFipe(v)}
         <div class="resumo-acoes">
           ${zap ? `<a class="btn-zap largo" href="${esc(zap)}" target="_blank" rel="noopener">${I.whats}<span>Tenho interesse</span></a>` : ''}
           <div class="duas-acoes">
@@ -504,7 +509,7 @@ async function detalhe(ctx, req, e, id, res) {
             <button type="button" class="btn-sec" data-abrir="troca" data-veiculo="${v.id}" data-veiculo-nome="${esc(veiculoTxt)}">${I.troca}Dar na troca</button>
           </div>
           <div class="resumo-mini">
-            <button type="button" class="btn-mini favoritar" data-favoritar="${v.id}" aria-pressed="false">${I.coracao}<span>Salvar</span></button>
+            <button type="button" class="btn-mini favoritar" data-favoritar="${v.id}" data-nome="${esc(veiculoTxt)}" aria-pressed="false">${I.coracao}<span>Salvar</span></button>
             <button type="button" class="btn-mini" data-compartilhar data-titulo="${esc(titulo)}" data-url="${esc(url)}">${I.compartilhar}<span>Compartilhar</span></button>
           </div>
         </div>
@@ -655,6 +660,11 @@ export function registrarCatalogo(app, b, op) {
         for (const [k, val] of Object.entries(c.dados ?? {})) {
             if (/^[a-z_]{1,20}$/.test(k) && Object.keys(dados).length < 12)
                 dados[k] = texto(val).slice(0, 120);
+        }
+        if (tipo === 'visita' && dados.v_dia && dados.v_hora) {
+            const e = b.one('SELECT * FROM empresa WHERE id = 1') ?? {};
+            if (!horarioDisponivel(b, e, dados.v_dia, dados.v_hora))
+                falhar('Esse horário não está mais disponível. Escolha outro.', 409);
         }
         limiteContato.registrar(req.ip);
         const id = b.inserir('contatos_site', {

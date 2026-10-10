@@ -17,6 +17,7 @@ import { auditar } from './auth.js';
 import { cifrar, decifrar } from '../util/cripto.js';
 import { salvarDataUrl, apagarArquivo } from '../util/arquivos.js';
 import { enviarNuvem } from '../util/nuvem.js';
+import { validarAgenda } from './agenda.js';
 
 export interface ConfigFiscal {
   pastaCertificados: string;
@@ -304,6 +305,7 @@ export function registrarFiscal(app: App, b: Banco, cfg: ConfigFiscal): void {
       catalogo_sobre: String(c.catalogo_sobre ?? '').trim().slice(0, 2000),
       cor_marca: /^#[0-9a-fA-F]{6}$/.test(texto(c.cor_marca)) ? texto(c.cor_marca) : '',
       cor_faixa: /^#[0-9a-fA-F]{6}$/.test(texto(c.cor_faixa)) ? texto(c.cor_faixa) : '',
+      agenda: req.corpo.agenda !== undefined ? JSON.stringify(validarAgenda(req.corpo.agenda)) : atual.agenda,
       // Fundo precisa ser claro, senão o texto escuro do site fica ilegível
       cor_fundo: /^#[0-9a-fA-F]{6}$/.test(texto(c.cor_fundo)) && luminancia(texto(c.cor_fundo)) >= 0.75 ? texto(c.cor_fundo) : '',
       catalogo_taxa_mes: Math.min(10, Math.max(0, numero(c.catalogo_taxa_mes, 1.99))),
