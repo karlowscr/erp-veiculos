@@ -208,4 +208,30 @@
     if (navigator.share) navigator.share(dados).catch(function () {});
     else if (navigator.clipboard) navigator.clipboard.writeText(dados.url).then(function () { c.querySelector('span').textContent = 'Link copiado'; });
   });
+
+  // ---- Números que contam até o valor quando aparecem ----
+  var nums = document.querySelectorAll('[data-contar]');
+  var calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (nums.length && 'IntersectionObserver' in window && !calmo) {
+    var fmt = function (el, v) {
+      var casas = Number(el.dataset.casas || 0);
+      el.textContent = (el.dataset.prefixo || '') + v.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas }) + (el.dataset.sufixo || '');
+    };
+    nums.forEach(function (el) { fmt(el, 0); });
+    var obs = new IntersectionObserver(function (itens) {
+      itens.forEach(function (it) {
+        if (!it.isIntersecting) return;
+        obs.unobserve(it.target);
+        var el = it.target, alvo = Number(el.dataset.contar), t0 = performance.now(), dur = 1400;
+        var passo = function (t) {
+          var x = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - x, 3);
+          var casas = Number(el.dataset.casas || 0), f = Math.pow(10, casas);
+          fmt(el, Math.round(alvo * e * f) / f);
+          if (x < 1) requestAnimationFrame(passo);
+        };
+        requestAnimationFrame(passo);
+      });
+    }, { threshold: 0.6 });
+    nums.forEach(function (el) { obs.observe(el); });
+  }
 })();

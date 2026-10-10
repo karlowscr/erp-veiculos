@@ -214,8 +214,8 @@ test('entrada pelo documento, fotos, FIPE e catálogo público', async () => {
   assert.equal((await visitante.req('GET', `/fotos-publicas/${f2.arquivo}`)).status, 200);
   assert.match((await visitante.req('GET', '/sitemap.xml')).txt, new RegExp(`/veiculo/${e.id}-`));
   // Filtros
-  assert.match((await visitante.req('GET', '/?q=argo')).txt, /1 veículo encontrado/);
-  assert.match((await visitante.req('GET', '/?faixa=ate50')).txt, /0 veículos encontrados/);
+  assert.match((await visitante.req('GET', '/?q=argo')).txt, /1 veículo\s*<span>encontrado/);
+  assert.match((await visitante.req('GET', '/?faixa=ate50')).txt, /0 veículos\s*<span>encontrados/);
   // Pedido de visita feito pelo site chega em Contatos do site
   const pedido = await visitante.req('POST', '/api/site/contato', { tipo: 'visita', nome: 'Carla', telefone: '(85) 99999-1234', veiculo_id: e.id, dados: { v_dia: '2026-10-20', v_periodo: 'Manhã' } });
   assert.equal(pedido.status, 200);

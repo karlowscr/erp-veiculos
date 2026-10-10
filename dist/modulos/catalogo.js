@@ -74,6 +74,28 @@ const I = {
     troca: ic('<path d="M4 8h13l-3-3M20 16H7l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'),
     fotos: ic('<rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.6" fill="currentColor"/><path d="m4 18 5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'),
 };
+const J = {
+    seta: ic('<path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'),
+    carteira: ic('<rect x="3" y="6" width="18" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M16 15h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'),
+    grafico: ic('<path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'),
+    mais: ic('<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'),
+};
+/** Divide o título em duas linhas (a segunda sai em outro tom, como nas referências). */
+function duasLinhas(t) {
+    const s = t.trim();
+    const m = /^(.+?)\s+((?:em|na|no|para|com|de)\s.+)$/i.exec(s);
+    if (m && m[1].length >= 6)
+        return [m[1], m[2]];
+    const p = s.split(/\s+/);
+    if (p.length < 2)
+        return [s, ''];
+    const meio = Math.ceil(p.length / 2);
+    return [p.slice(0, meio).join(' '), p.slice(meio).join(' ')];
+}
+const titulo2 = (t, tag = 'h2', extra = '') => {
+    const [a, b] = duasLinhas(t);
+    return `<${tag} class="titulo-duplo"${extra}>${esc(a)}${b ? ` <span>${esc(b)}</span>` : ''}</${tag}>`;
+};
 function layout(ctx, req, e, op) {
     const loja = nomeLoja(e);
     const origem = origemSite(ctx, req);
@@ -90,27 +112,31 @@ function layout(ctx, req, e, op) {
 <meta property="og:title" content="${esc(op.titulo)}"><meta property="og:description" content="${esc(op.descricao)}">
 <meta property="og:url" content="${esc(origem + op.canonico)}">
 ${op.imagem ? `<meta property="og:image" content="${esc(origem + op.imagem)}"><meta name="twitter:card" content="summary_large_image">` : ''}
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="${cor}">
 ${logo ? `<link rel="icon" href="${esc(logo)}">` : ''}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/s/catalogo.css?v=${versaoSite.css}">
 <style>:root{--marca:${cor}}</style>
 ${op.jsonLd ? `<script type="application/ld+json">${JSON.stringify(op.jsonLd).replace(/</g, '\\u003c')}</script>` : ''}
 </head><body class="${op.classe ?? ''}" data-whats="${esc(whatsapp(e))}" data-loja="${esc(loja)}">
 <a class="pular" href="#principal">Ir para o conteúdo</a>
-<header class="topo"><div class="faixa">
-  <a class="marca" href="/">${logo ? `<img src="${esc(logo)}" alt="">` : `<span class="sigla">${esc(loja.slice(0, 1))}</span>`}<span class="nome">${esc(loja)}</span></a>
-  <nav class="atalhos" aria-label="Atalhos">
-    <a href="/#estoque">Estoque</a>
-    <a href="/#troca">Venda ou troque seu carro</a>
-    <a href="/?salvos=1" class="salvos" data-salvos hidden>${I.coracao}<span>Salvos</span> <b data-salvos-qtd>0</b></a>
+<header class="topo">
+  <nav class="pilula" aria-label="Menu">
+    <a class="marca" href="/">${logo ? `<img src="${esc(logo)}" alt="">` : `<span class="sigla">${esc(loja.slice(0, 1))}</span>`}<span class="nome">${esc(loja)}</span></a>
+    <span class="atalhos">
+      <a href="/#estoque">Estoque</a>
+      <a href="/#vantagens">Como comprar</a>
+      <a href="/#troca">Troca</a>
+      <a href="/#duvidas">Dúvidas</a>
+    </span>
+    <a href="/?salvos=1" class="salvos" data-salvos hidden aria-label="Veículos salvos">${I.coracao}<b data-salvos-qtd>0</b></a>
+    ${zap ? `<a class="btn-zap" href="${esc(zap)}" target="_blank" rel="noopener">${I.whats}<span>WhatsApp</span></a>` : ''}
   </nav>
-  ${zap ? `<a class="btn-zap" href="${esc(zap)}" target="_blank" rel="noopener">${I.whats}<span>Chamar no WhatsApp</span></a>` : ''}
-</div></header>
+</header>
 <main id="principal">${op.corpo}</main>
 <footer class="rodape"><div class="faixa">
-  <div class="rodape-loja">${logo ? `<img src="${esc(logo)}" alt="">` : ''}<div><b>${esc(e.razao_social || loja)}</b>${e.cnpj ? `<small>CNPJ ${esc(String(e.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'))}</small>` : ''}</div></div>
+  <div class="rodape-loja">${logo ? `<img src="${esc(logo)}" alt="">` : `<span class="sigla">${esc(loja.slice(0, 1))}</span>`}<div><b>${esc(e.razao_social || loja)}</b>${e.cnpj ? `<small>CNPJ ${esc(String(e.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'))}</small>` : ''}</div></div>
   <ul class="rodape-contato">
     ${enderecoLoja(e) ? `<li>${I.local}${mapa ? `<a href="${esc(mapa)}" target="_blank" rel="noopener">${esc(enderecoLoja(e))}</a>` : esc(enderecoLoja(e))}</li>` : ''}
     ${e.horario ? `<li>${I.relogio}${esc(e.horario)}</li>` : ''}
@@ -146,11 +172,15 @@ function cartao(v) {
         ${v.qtd_fotos > 1 ? `<span class="qtd-fotos">${I.fotos}${v.qtd_fotos}</span>` : ''}
         ${v.situacao === 'reservado' ? '<span class="tarja reservado">Reservado</span>' : v.novo_no_patio ? '<span class="tarja">Chegou agora</span>' : ''}</div>
       <div class="info">
-        <h3><span class="ano">${v.ano_fab}/${v.ano_mod}</span>${esc(titulo)}</h3>
+        <p class="ano">${v.ano_fab}/${v.ano_mod}</p>
+        <h3>${esc(titulo)}</h3>
         <p class="versao">${esc(cap(v.versao || ''))}</p>
         <ul class="dados"><li>${esc(km(v.km))}</li><li>${esc(NOMES_CAMBIO[v.cambio] ?? cap(v.cambio))}</li><li>${esc(NOMES_COMB[v.combustivel] ?? cap(v.combustivel))}</li></ul>
-        <div class="preco-linha"><p class="preco ${v.mostrar_preco ? '' : 'consulte'}">${v.mostrar_preco ? reais(v.preco_venda) : 'Consulte o preço'}</p>
+        <div class="preco-linha">
+          <div><p class="preco ${v.mostrar_preco ? '' : 'consulte'}">${v.mostrar_preco ? reais(v.preco_venda) : 'Consulte o preço'}</p>
           ${fipe && fipe.pct >= 1 ? `<span class="fipe-selo" title="Preço ${reais(fipe.dif)} abaixo da tabela FIPE">${fipe.pct.toLocaleString('pt-BR')}% abaixo da FIPE</span>` : ''}</div>
+          <span class="circulo" aria-hidden="true">${J.seta}</span>
+        </div>
       </div>
     </a>
     <button type="button" class="favoritar" data-favoritar="${v.id}" aria-pressed="false" aria-label="Salvar ${esc(titulo)}">${I.coracao}</button>
@@ -164,6 +194,16 @@ const COLUNAS_CARTAO = `v.id, v.marca, v.modelo, v.versao, v.ano_fab, v.ano_mod,
 const FAIXAS = [
     ['ate50', 'Até R$ 50 mil', 0, 50000], ['50a80', 'R$ 50 a 80 mil', 50000, 80000], ['80a120', 'R$ 80 a 120 mil', 80000, 120000], ['acima120', 'Acima de R$ 120 mil', 120000, 1e12],
 ];
+/** Número que conta até o valor quando aparece na tela. */
+const contador = (valor, op = {}) => `<b class="contador-num" data-contar="${valor}" data-casas="${op.casas ?? 0}" data-prefixo="${esc(op.prefixo ?? '')}" data-sufixo="${esc(op.sufixo ?? '')}">${esc((op.prefixo ?? '') + valor.toLocaleString('pt-BR', { minimumFractionDigits: op.casas ?? 0, maximumFractionDigits: op.casas ?? 0 }) + (op.sufixo ?? ''))}</b>`;
+function faixaChamada(e, titulo, texto) {
+    const zap = linkWhats(e, `Olá! Vim pelo site da ${nomeLoja(e)}.`);
+    return `<section class="chamada"><div class="chamada-caixa">
+    ${titulo2(titulo)}
+    <p>${esc(texto)}</p>
+    ${zap ? `<a class="btn-claro" href="${esc(zap)}" target="_blank" rel="noopener">${I.whats}<span>Conversar no WhatsApp</span></a>` : ''}
+  </div></section>`;
+}
 async function inicio(ctx, req, e) {
     const q = req.query;
     const where = [SITUACAO_PUBLICA];
@@ -205,7 +245,9 @@ async function inicio(ctx, req, e) {
     const filtrando = !!(busca || marca || tipo || faixa || salvos);
     const total = ctx.b.one(`SELECT COUNT(*) AS q FROM veiculos v WHERE ${where.join(' AND ')}`, p).q;
     const lista = ctx.b.all(`SELECT ${COLUNAS_CARTAO} FROM veiculos v WHERE ${where.join(' AND ')} ORDER BY ${ordens[ordem]} LIMIT ? OFFSET ?`, [...p, POR_PAGINA, (pagina - 1) * POR_PAGINA]);
-    const todos = ctx.b.one(`SELECT COUNT(*) AS q, SUM(CASE WHEN v.tipo = 'moto' THEN 1 ELSE 0 END) AS motos, SUM(CASE WHEN v.tipo <> 'moto' THEN 1 ELSE 0 END) AS carros FROM veiculos v WHERE ${SITUACAO_PUBLICA}`) ?? {};
+    const todos = ctx.b.one(`SELECT COUNT(*) AS q, SUM(CASE WHEN v.tipo = 'moto' THEN 1 ELSE 0 END) AS motos, SUM(CASE WHEN v.tipo <> 'moto' THEN 1 ELSE 0 END) AS carros,
+    MAX(CASE WHEN v.mostrar_preco = 1 AND v.fipe_valor > 0 AND v.preco_venda > 0 AND v.preco_venda <= v.fipe_valor THEN (v.fipe_valor - v.preco_venda) * 100.0 / v.fipe_valor END) AS maior_desconto
+    FROM veiculos v WHERE ${SITUACAO_PUBLICA}`) ?? {};
     const marcas = ctx.b.all(`SELECT MIN(v.marca) AS marca, COUNT(*) AS q FROM veiculos v WHERE ${SITUACAO_PUBLICA} GROUP BY upper(v.marca) ORDER BY MIN(v.marca)`);
     // Destaque da capa: o marcado como destaque, senão o que chegou por último
     const capa = !filtrando && pagina === 1 ? ctx.b.one(`SELECT ${COLUNAS_CARTAO}, v.descricao_catalogo, v.cor FROM veiculos v WHERE ${SITUACAO_PUBLICA} AND EXISTS (SELECT 1 FROM veiculo_fotos f WHERE f.veiculo_id = v.id) ORDER BY v.destaque DESC, v.data_entrada DESC, v.id DESC LIMIT 1`) : undefined;
@@ -226,33 +268,43 @@ async function inicio(ctx, req, e) {
     const chip = (rot, ativo, href) => `<a class="chip" href="${esc(href)}"${ativo ? ' aria-current="true"' : ''}>${esc(rot)}</a>`;
     const opcao = (v, rot, atual) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(rot)}</option>`;
     const paginas = Math.ceil(total / POR_PAGINA);
-    const capaHtml = capa ? (() => {
-        const t = `${cap(capa.marca)} ${cap(capa.modelo)}`;
-        const fipe = abaixoFipe(capa);
-        const zap = linkWhats(e, `Olá! Vi o ${t} ${capa.ano_fab}/${capa.ano_mod} no site e tenho interesse.`);
-        return `<section class="vitrine-capa" aria-label="Destaque do pátio">
-      <div class="faixa capa-grade">
-        <div class="capa-texto">
-          <p class="capa-rotulo">${capa.destaque ? 'Destaque do pátio' : 'Acabou de chegar'}</p>
-          <h1 class="capa-nome"><span>${esc(cap(capa.marca))}</span> ${esc(cap(capa.modelo))}</h1>
-          <p class="capa-versao">${esc(cap(capa.versao || ''))}</p>
-          <dl class="capa-dados"><div><dt>Ano</dt><dd>${capa.ano_fab}/${capa.ano_mod}</dd></div><div><dt>Rodou</dt><dd>${esc(km(capa.km))}</dd></div><div><dt>Câmbio</dt><dd>${esc(NOMES_CAMBIO[capa.cambio] ?? cap(capa.cambio))}</dd></div></dl>
-          <p class="capa-preco">${capa.mostrar_preco ? reais(capa.preco_venda) : 'Consulte o preço'}</p>
-          ${fipe ? `<p class="capa-fipe">${reais(fipe.dif)} abaixo da tabela FIPE</p>` : ''}
-          <div class="capa-acoes"><a class="btn" href="/veiculo/${esc(slug(capa))}">Ver fotos e detalhes</a>${zap ? `<a class="btn-zap" href="${esc(zap)}" target="_blank" rel="noopener">${I.whats}<span>Tenho interesse</span></a>` : ''}</div>
-        </div>
-        <a class="capa-foto" href="/veiculo/${esc(slug(capa))}" tabindex="-1" aria-hidden="true"><img src="/fotos-publicas/${esc(capa.foto)}" alt="" fetchpriority="high"></a>
+    const taxa = Number(e.catalogo_taxa_mes ?? 1.99);
+    const qtd = Number(todos.q ?? 0);
+    const desconto = Number(todos.maior_desconto ?? 0);
+    const zapGeral = linkWhats(e, `Olá! Vim pelo site da ${loja}.`);
+    const sobre = e.catalogo_sobre || 'Todos com procedência conferida e documentação em dia.';
+    // ---- Capa: título grande, o veículo em destaque no centro e cartões de vidro em volta ----
+    const capaHtml = !filtrando && pagina === 1 ? (() => {
+        const t = capa ? `${cap(capa.marca)} ${cap(capa.modelo)}` : '';
+        const fipe = capa ? abaixoFipe(capa) : null;
+        const [l1, l2] = duasLinhas(titulo);
+        return `<section class="capa${capa ? '' : ' sem-destaque'}" aria-label="${esc(loja)}">
+      <div class="capa-brilho" aria-hidden="true"></div>
+      <div class="capa-topo">
+        <h1 class="titulo-duplo grande">${esc(l1)}${l2 ? ` <span>${esc(l2)}</span>` : ''}</h1>
+        <p class="capa-sub">${qtd} veículo${qtd === 1 ? '' : 's'} à venda na ${esc(loja)}${e.municipio ? ` em ${esc(e.municipio)}` : ''}. ${esc(sobre)}</p>
       </div>
-      <p class="faixa capa-rodape">${todos.q} veículo${todos.q === 1 ? '' : 's'} à venda na ${esc(loja)}${e.municipio ? ` em ${esc(e.municipio)}` : ''}. ${esc(e.catalogo_sobre || 'Todos com procedência conferida e documentação em dia.')}</p>
+      ${capa ? `<div class="capa-palco">
+        <a class="capa-foto" href="/veiculo/${esc(slug(capa))}" aria-label="Ver ${esc(t)}"><img src="/fotos-publicas/${esc(capa.foto)}" alt="${esc(t)} ${capa.ano_mod}" fetchpriority="high"></a>
+        <a class="vidro vidro-a" href="/veiculo/${esc(slug(capa))}">
+          <span class="vidro-rotulo">${capa.destaque ? 'Destaque do pátio' : 'Acabou de chegar'}</span>
+          <b class="vidro-num">${capa.mostrar_preco ? reais(capa.preco_venda) : 'Consulte'}</b>
+          <span>${esc(t)} ${capa.ano_fab}/${capa.ano_mod}</span>
+          <span class="vidro-acao"><span class="btn-mini-claro">Ver fotos e detalhes</span><span class="circulo">${J.seta}</span></span>
+        </a>
+        ${fipe && fipe.pct >= 1 ? `<div class="vidro vidro-b"><b class="vidro-num">${fipe.pct.toLocaleString('pt-BR')}%</b><span>abaixo da tabela FIPE<br>${reais(fipe.dif)} de diferença</span></div>` : ''}
+        <div class="vidro vidro-c"><b class="vidro-num">${esc(km(capa.km).replace(' km', ''))}<small> km</small></b><span>${esc(NOMES_CAMBIO[capa.cambio] ?? cap(capa.cambio))}, ${esc(NOMES_COMB[capa.combustivel] ?? cap(capa.combustivel))}</span></div>
+      </div>` : `<div class="capa-acoes"><a class="btn-claro" href="#estoque">Ver o estoque</a>${zapGeral ? `<a class="btn-vidro" href="${esc(zapGeral)}" target="_blank" rel="noopener">${I.whats}<span>Falar com a loja</span></a>` : ''}</div>`}
     </section>`;
-    })() : `<section class="vitrine-capa simples"><div class="faixa"><h1 class="capa-nome">${esc(titulo)}</h1><p class="capa-versao">${esc(e.catalogo_sobre || `Veículos à venda na ${loja}.`)}</p></div></section>`;
+    })() : '';
     const vazioTexto = salvos ? ['Nenhum veículo salvo', 'Toque no coração dos veículos que você gostar para guardar aqui e comparar depois.']
         : filtrando ? ['Nada com esses filtros', 'Tente outra busca. Se você procura um modelo específico, a loja pode encontrar para você.']
             : ['Novidades chegando', 'Estamos preparando os próximos veículos. Fale com a loja: ela pode encontrar o carro certo para você.'];
-    const corpo = `${capaHtml}
-  <section class="estoque faixa" id="estoque" aria-labelledby="titulo-estoque">
+    const estoque = `<section class="estoque${filtrando || pagina > 1 ? ' sem-capa' : ''}" id="estoque" aria-labelledby="titulo-estoque"><div class="faixa">
     <div class="estoque-cab">
-      <h2 id="titulo-estoque">${salvos ? 'Seus veículos salvos' : filtrando ? `${total} veículo${total === 1 ? '' : 's'} encontrado${total === 1 ? '' : 's'}` : 'Estoque completo'}</h2>
+      ${salvos ? '<h2 class="titulo-duplo" id="titulo-estoque">Seus veículos<span>salvos para comparar</span></h2>'
+        : filtrando ? `<h2 class="titulo-duplo" id="titulo-estoque">${total} veículo${total === 1 ? '' : 's'}<span>encontrado${total === 1 ? '' : 's'}</span></h2>`
+            : '<h2 class="titulo-duplo" id="titulo-estoque">Estoque completo<span>escolha o seu</span></h2>'}
       ${filtrando ? `<a class="limpar" href="/#estoque">Limpar filtros</a>` : ''}
     </div>
     <form class="busca-linha" method="get" action="/#estoque" role="search">
@@ -269,20 +321,59 @@ async function inicio(ctx, req, e) {
     ${lista.length ? `<div class="grade">${lista.map(cartao).join('')}</div>`
         : `<div class="vazio"><h3>${vazioTexto[0]}</h3><p>${vazioTexto[1]}</p>${linkWhats(e, 'Olá! Estou procurando um veículo.') ? `<a class="btn-zap" href="${esc(linkWhats(e, 'Olá! Estou procurando um veículo.'))}" target="_blank" rel="noopener">${I.whats}<span>Pedir para a loja procurar</span></a>` : ''}</div>`}
     ${paginas > 1 ? `<nav class="paginas" aria-label="Páginas">${pagina > 1 ? `<a href="${esc(link({ pagina: String(pagina - 1) }))}" rel="prev">Anterior</a>` : ''}<span>Página ${pagina} de ${paginas}</span>${pagina < paginas ? `<a href="${esc(link({ pagina: String(pagina + 1) }))}" rel="next">Próxima</a>` : ''}</nav>` : ''}
-  </section>
-  <section class="troca" id="troca" aria-labelledby="titulo-troca"><div class="faixa troca-grade">
-    <div><h2 id="titulo-troca">Venda ou troque seu carro</h2>
-      <p>Conte qual é o seu veículo. A loja avalia e responde no WhatsApp com uma proposta, para vender ou usar como entrada.</p></div>
+  </div></section>`;
+    // ---- Faixa forte: números da loja e o que dá para fazer pelo site ----
+    const vantagens = `<section class="intensa" id="vantagens" aria-labelledby="t-vant"><div class="faixa">
+    <div class="intensa-cab">
+      <h2 class="titulo-duplo claro" id="t-vant">Comprar aqui<span>é simples assim</span></h2>
+      <div class="numeros">
+        <div>${contador(qtd)}<span>veículo${qtd === 1 ? '' : 's'} no pátio agora</span></div>
+        <div>${contador(60, { prefixo: 'até ', sufixo: 'x' })}<span>no simulador de financiamento</span></div>
+        ${desconto >= 1 ? `<div>${contador(Math.floor(desconto * 10) / 10, { casas: 1, sufixo: '%' })}<span>o maior desconto sobre a FIPE no estoque</span></div>` : ''}
+      </div>
+    </div>
+    <div class="bento">
+      <a class="vidro bento-a" href="#estoque">${J.carteira}<b>Simule a parcela</b><span>Em cada veículo você escolhe a entrada e o prazo, e vê a parcela na hora. Juros de referência de ${taxa.toLocaleString('pt-BR')}% ao mês.</span><span class="circulo">${J.seta}</span></a>
+      <a class="vidro" href="#troca">${I.troca}<b>Seu carro na troca</b><span>Conte qual é o seu carro e receba a proposta pelo WhatsApp.</span><span class="circulo">${J.seta}</span></a>
+      <button type="button" class="vidro" data-abrir="visita">${I.calendario}<b>Agende uma visita</b><span>Escolha o dia e o período. A loja confirma com você.</span><span class="circulo">${J.seta}</span></button>
+      <a class="vidro" href="#estoque">${J.grafico}<b>Comparação com a FIPE</b><span>Quando o preço está abaixo da tabela, mostramos quanto.</span><span class="circulo">${J.seta}</span></a>
+      <a class="vidro" href="/?salvos=1#estoque">${I.coracao}<b>Salve e compare</b><span>Toque no coração para guardar os carros que você gostou.</span><span class="circulo">${J.seta}</span></a>
+      ${zapGeral ? `<a class="vidro" href="${esc(zapGeral)}" target="_blank" rel="noopener">${I.whats}<b>Atendimento no WhatsApp</b><span>${esc(e.horario || 'Fale direto com a equipe da loja.')}</span><span class="circulo">${J.seta}</span></a>` : ''}
+    </div>
+  </div></section>`;
+    // ---- Troca: passos (é uma sequência de verdade) + formulário ----
+    const troca = `<section class="troca" id="troca" aria-labelledby="titulo-troca"><div class="faixa troca-cartao">
+    <div class="troca-texto">
+      ${titulo2('Venda ou troque seu carro', 'h2', ' id="titulo-troca"')}
+      <ol class="passos">
+        <li><b>Conte qual é o carro</b><span>Modelo, ano e quilometragem.</span></li>
+        <li><b>A loja avalia</b><span>Com base na FIPE e no estado do veículo.</span></li>
+        <li><b>Você recebe a proposta</b><span>No WhatsApp, para vender ou usar como entrada.</span></li>
+      </ol>
+    </div>
     <form class="troca-form" data-troca novalidate>
-      <label>Marca e modelo<input name="t_modelo" required maxlength="60" placeholder="Ex.: Fiat Uno Way 1.0"></label>
+      <label class="largo">Marca e modelo<input name="t_modelo" required maxlength="60" placeholder="Ex.: Fiat Uno Way 1.0"></label>
       <label>Ano<input name="t_ano" required inputmode="numeric" maxlength="9" placeholder="2017/2018"></label>
       <label>Quilometragem<input name="t_km" inputmode="numeric" maxlength="9" placeholder="85.000"></label>
-      <label>Está quitado?<select name="t_quitado"><option>Sim, quitado</option><option>Ainda está financiado</option></select></label>
-      <button type="submit" class="btn">${I.troca}Pedir avaliação</button>
+      <label class="largo">Está quitado?<select name="t_quitado"><option>Sim, quitado</option><option>Ainda está financiado</option></select></label>
+      <button type="submit" class="btn largo">${I.troca}Pedir avaliação</button>
     </form>
   </div></section>`;
+    // ---- Dúvidas ----
+    const duvidas = [
+        ['Como funciona o financiamento?', `Abra o veículo, escolha a entrada e o número de parcelas no simulador e toque em "Quero esta simulação". A loja faz a análise de crédito com o banco e responde pelo WhatsApp. A simulação usa juros de referência de ${taxa.toLocaleString('pt-BR')}% ao mês; o valor final depende da aprovação.`],
+        ['Posso dar meu carro como parte do pagamento?', 'Sim. Preencha a avaliação acima ou toque em "Dar meu carro na troca" na página do veículo. A loja responde com uma proposta.'],
+        ['Como agendo uma visita?', `Na página do veículo, toque em "Agendar visita" e escolha o dia e o período.${e.horario ? ` Horário da loja: ${e.horario}.` : ''}${enderecoLoja(e) ? ` Endereço: ${enderecoLoja(e)}.` : ''}`],
+        ['O que significa "abaixo da FIPE"?', 'A tabela FIPE é a referência de preço médio de veículos no Brasil. Quando o preço anunciado está abaixo dela, mostramos a diferença no anúncio.'],
+        ['Os preços podem mudar?', 'Os preços anunciados são à vista e sujeitos à disponibilidade. Confirme com a loja antes de fechar negócio.'],
+    ];
+    const faq = `<section class="duvidas" id="duvidas" aria-labelledby="t-duv"><div class="faixa duvidas-grade">
+    ${titulo2('Ficou alguma dúvida?', 'h2', ' id="t-duv"')}
+    <div class="acordeao">${duvidas.map(([p, r], i) => `<details${i === 0 ? ' open' : ''}><summary>${esc(p)}<span class="mais" aria-hidden="true">${J.mais}</span></summary><p>${esc(r)}</p></details>`).join('')}</div>
+  </div></section>`;
+    const corpo = `${capaHtml}${estoque}${!filtrando && pagina === 1 ? vantagens + troca + faq + faixaChamada(e, `Encontrou o seu? Fale com a ${loja}`, 'Tire dúvidas, peça mais fotos ou combine uma visita. A equipe responde pelo WhatsApp.') : ''}`;
     return layout(ctx, req, e, {
-        titulo: `${loja}: ${titulo}`, descricao: `${todos.q} veículo${todos.q === 1 ? "" : "s"} à venda na ${loja}${e.municipio ? ' em ' + e.municipio : ''}. Fotos, preços, simulação de financiamento e avaliação do seu carro pelo WhatsApp.`,
+        titulo: `${loja}: ${titulo}`, descricao: `${qtd} veículo${qtd === 1 ? '' : 's'} à venda na ${loja}${e.municipio ? ' em ' + e.municipio : ''}. Fotos, preços, simulação de financiamento e avaliação do seu carro pelo WhatsApp.`,
         imagem: capa?.foto ? `/fotos-publicas/${capa.foto}` : lista[0]?.foto ? `/fotos-publicas/${lista[0].foto}` : urlLogo(e) || undefined,
         canonico: pagina > 1 || filtrando ? link({}).replace('#estoque', '') : '/', corpo, classe: 'pg-inicio',
         jsonLd: { '@context': 'https://schema.org', '@type': 'AutoDealer', name: loja, telephone: e.whatsapp || e.telefone || undefined, address: enderecoLoja(e) || undefined, openingHours: e.horario || undefined },
@@ -336,22 +427,22 @@ async function detalhe(ctx, req, e, id, res) {
     const entradaPct = Number(e.catalogo_entrada_pct ?? 30);
     const veiculoTxt = `${titulo} ${v.ano_fab}/${v.ano_mod}`;
     const simulador = v.mostrar_preco && v.preco_venda > 0 ? `
-    <section class="bloco simulador" id="simular" aria-labelledby="t-sim" data-simulador data-preco="${v.preco_venda}" data-taxa="${taxa}">
-      <h2 id="t-sim">Simule o financiamento</h2>
+    <section class="intensa simulador" id="simular" aria-labelledby="t-sim" data-simulador data-preco="${v.preco_venda}" data-taxa="${taxa}">
       <div class="sim-grade">
         <div class="sim-controles">
+          <h2 class="titulo-duplo claro" id="t-sim">Simule o financiamento<span>do seu jeito</span></h2>
           <label class="sim-entrada"><span>Entrada <output data-entrada-valor>${reais(v.preco_venda * entradaPct / 100)}</output></span>
             <input type="range" min="0" max="90" step="5" value="${entradaPct}" data-entrada aria-label="Percentual de entrada"><small><span data-entrada-pct>${entradaPct}</span>% do valor do veículo</small></label>
           <fieldset class="sim-prazos"><legend>Em quantas vezes</legend>
             ${[24, 36, 48, 60].map((n) => `<label><input type="radio" name="prazo" value="${n}"${n === 48 ? ' checked' : ''}><span>${n}x</span></label>`).join('')}
           </fieldset>
         </div>
-        <div class="sim-resultado" aria-live="polite">
+        <div class="vidro sim-resultado" aria-live="polite">
           <span>Parcelas estimadas de</span><b data-parcela>—</b><small data-sim-resumo></small>
-          <button type="button" class="btn" data-abrir="financiamento" data-veiculo="${v.id}" data-veiculo-nome="${esc(veiculoTxt)}">Quero esta simulação</button>
+          <button type="button" class="btn-claro" data-abrir="financiamento" data-veiculo="${v.id}" data-veiculo-nome="${esc(veiculoTxt)}">Quero esta simulação</button>
+          <p class="sim-nota">Estimativa com juros de ${taxa.toLocaleString('pt-BR')}% ao mês. O valor final depende da análise de crédito do banco.</p>
         </div>
       </div>
-      <p class="sim-nota">Estimativa com juros de ${taxa.toLocaleString('pt-BR')}% ao mês. O valor final depende da análise de crédito do banco.</p>
     </section>` : '';
     const corpo = `
   <div class="faixa detalhe">
@@ -365,15 +456,17 @@ async function detalhe(ctx, req, e, id, res) {
       </section>
       <aside class="resumo">
         ${v.situacao === 'reservado' ? '<p class="tarja reservado">Reservado: fale com a loja para entrar na fila</p>' : ''}
-        <h1><span class="ano">${v.ano_fab}/${v.ano_mod}</span>${esc(nome)}</h1>
-        <p class="versao">${esc(cap(v.versao || ''))}</p>
+        <p class="ano">${v.ano_fab}/${v.ano_mod}</p>
+        <h1 class="titulo-duplo">${esc(nome)}${v.versao ? `<span>${esc(cap(v.versao))}</span>` : ''}</h1>
         <ul class="dados"><li>${esc(km(v.km))}</li><li>${esc(NOMES_CAMBIO[v.cambio] ?? cap(v.cambio))}</li><li>${esc(NOMES_COMB[v.combustivel] ?? cap(v.combustivel))}</li>${v.cor ? `<li>${esc(cap(v.cor))}</li>` : ''}</ul>
         <p class="preco grande ${v.mostrar_preco ? '' : 'consulte'}">${preco}</p>
         ${mostradorFipe(v)}
         <div class="resumo-acoes">
           ${zap ? `<a class="btn-zap largo" href="${esc(zap)}" target="_blank" rel="noopener">${I.whats}<span>Tenho interesse</span></a>` : ''}
-          <button type="button" class="btn-sec" data-abrir="visita" data-veiculo="${v.id}" data-veiculo-nome="${esc(veiculoTxt)}">${I.calendario}Agendar visita</button>
-          <button type="button" class="btn-sec" data-abrir="troca" data-veiculo="${v.id}" data-veiculo-nome="${esc(veiculoTxt)}">${I.troca}Dar meu carro na troca</button>
+          <div class="duas-acoes">
+            <button type="button" class="btn-sec" data-abrir="visita" data-veiculo="${v.id}" data-veiculo-nome="${esc(veiculoTxt)}">${I.calendario}Agendar visita</button>
+            <button type="button" class="btn-sec" data-abrir="troca" data-veiculo="${v.id}" data-veiculo-nome="${esc(veiculoTxt)}">${I.troca}Dar na troca</button>
+          </div>
           <div class="resumo-mini">
             <button type="button" class="btn-mini favoritar" data-favoritar="${v.id}" aria-pressed="false">${I.coracao}<span>Salvar</span></button>
             <button type="button" class="btn-mini" data-compartilhar data-titulo="${esc(titulo)}" data-url="${esc(url)}">${I.compartilhar}<span>Compartilhar</span></button>
@@ -382,16 +475,17 @@ async function detalhe(ctx, req, e, id, res) {
         <p class="loja-info">${esc(loja)}${e.municipio ? ` em ${esc(e.municipio)}/${esc(e.uf)}` : ''}${e.horario ? `<br>${esc(e.horario)}` : ''}</p>
       </aside>
     </div>
-    ${simulador}
-    <div class="detalhe-colunas">
-      <section class="bloco"><h2>Ficha técnica</h2><dl class="ficha">${ficha.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('')}</dl></section>
-      ${v.descricao_catalogo || opcionais.length ? `<section class="bloco">
-        ${v.descricao_catalogo ? `<h2>Sobre este veículo</h2><p class="texto">${esc(v.descricao_catalogo)}</p>` : ''}
-        ${opcionais.length ? `<h2>Itens e opcionais</h2><ul class="opcionais">${opcionais.map((o) => `<li>${esc(o.charAt(0).toUpperCase() + o.slice(1))}</li>`).join('')}</ul>` : ''}
-      </section>` : ''}
-    </div>
-    ${outros.length ? `<section class="outros"><h2>Na mesma faixa de preço</h2><div class="grade">${outros.map(cartao).join('')}</div></section>` : ''}
-  </div>`;
+  </div>
+  ${simulador}
+  <div class="faixa detalhe-baixo">
+    <section class="bloco"><h2 class="titulo-duplo">Ficha técnica</h2><dl class="ficha">${ficha.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('')}</dl></section>
+    ${v.descricao_catalogo || opcionais.length ? `<section class="bloco">
+      ${v.descricao_catalogo ? `<h2 class="titulo-duplo">Sobre este veículo</h2><p class="texto">${esc(v.descricao_catalogo)}</p>` : ''}
+      ${opcionais.length ? `<h3 class="sub">Itens e opcionais</h3><ul class="opcionais">${opcionais.map((o) => `<li>${esc(o.charAt(0).toUpperCase() + o.slice(1))}</li>`).join('')}</ul>` : ''}
+    </section>` : ''}
+    ${outros.length ? `<section class="outros">${titulo2('Na mesma faixa de preço')}<div class="grade">${outros.map(cartao).join('')}</div></section>` : ''}
+  </div>
+  ${faixaChamada(e, 'Gostou deste? Fale com a loja agora', `Peça mais fotos, um vídeo ou combine um test drive do ${nome}.`)}`;
     const barraFixa = `<div class="barra-fixa"><div><b>${preco}</b><span>${esc(nome)} ${v.ano_mod}</span></div>${zap ? `<a class="btn-zap" href="${esc(zap)}" target="_blank" rel="noopener">${I.whats}<span>Tenho interesse</span></a>` : ''}</div>`;
     const imagem = fotos[0] ? `/fotos-publicas/${fotos[0].arquivo}` : undefined;
     return layout(ctx, req, e, {
