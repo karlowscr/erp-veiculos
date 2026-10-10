@@ -544,6 +544,10 @@ export const MIGRACOES = [
   );
   CREATE INDEX ix_contatos_site ON contatos_site(status, criado_em);
   `,
+    /* 7 — cores do site: faixas de destaque e fundo (vazio = automático) */ `
+  ALTER TABLE empresa ADD COLUMN cor_faixa TEXT NOT NULL DEFAULT '';
+  ALTER TABLE empresa ADD COLUMN cor_fundo TEXT NOT NULL DEFAULT '';
+  `,
 ];
 /**
  * Versão PostgreSQL (Supabase) das migrações acrescentadas DEPOIS do esquema
@@ -552,4 +556,7 @@ export const MIGRACOES = [
  * `node dist/scripts/gerar-schema-pg.js` antes de ter qualquer banco
  * PostgreSQL em uso.
  */
-export const MIGRACOES_PG = {};
+export const MIGRACOES_PG = {
+    7: `ALTER TABLE empresa ADD COLUMN cor_faixa TEXT NOT NULL DEFAULT '';
+      ALTER TABLE empresa ADD COLUMN cor_fundo TEXT NOT NULL DEFAULT '';`,
+};

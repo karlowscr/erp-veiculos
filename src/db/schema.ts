@@ -546,6 +546,10 @@ export const MIGRACOES: string[] = [
   );
   CREATE INDEX ix_contatos_site ON contatos_site(status, criado_em);
   `,
+  /* 7 — cores do site: faixas de destaque e fundo (vazio = automático) */ `
+  ALTER TABLE empresa ADD COLUMN cor_faixa TEXT NOT NULL DEFAULT '';
+  ALTER TABLE empresa ADD COLUMN cor_fundo TEXT NOT NULL DEFAULT '';
+  `,
 ];
 
 
@@ -556,4 +560,7 @@ export const MIGRACOES: string[] = [
  * `node dist/scripts/gerar-schema-pg.js` antes de ter qualquer banco
  * PostgreSQL em uso.
  */
-export const MIGRACOES_PG: Record<number, string> = {};
+export const MIGRACOES_PG: Record<number, string> = {
+  7: `ALTER TABLE empresa ADD COLUMN cor_faixa TEXT NOT NULL DEFAULT '';
+      ALTER TABLE empresa ADD COLUMN cor_fundo TEXT NOT NULL DEFAULT '';`,
+};

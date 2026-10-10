@@ -27,6 +27,15 @@ export interface ConfigFiscal {
 
 const simulado = () => process.env.NFE_SIMULADO === '1';
 
+/** Luminância relativa (0 = preto, 1 = branco) de uma cor #rrggbb. */
+export function luminancia(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 function empresa(b: Banco): Linha {
   return b.one('SELECT * FROM empresa WHERE id = 1')!;
 }
@@ -294,6 +303,9 @@ export function registrarFiscal(app: App, b: Banco, cfg: ConfigFiscal): void {
       horario: texto(c.horario).slice(0, 200), catalogo_titulo: texto(c.catalogo_titulo).slice(0, 120),
       catalogo_sobre: String(c.catalogo_sobre ?? '').trim().slice(0, 2000),
       cor_marca: /^#[0-9a-fA-F]{6}$/.test(texto(c.cor_marca)) ? texto(c.cor_marca) : '',
+      cor_faixa: /^#[0-9a-fA-F]{6}$/.test(texto(c.cor_faixa)) ? texto(c.cor_faixa) : '',
+      // Fundo precisa ser claro, senão o texto escuro do site fica ilegível
+      cor_fundo: /^#[0-9a-fA-F]{6}$/.test(texto(c.cor_fundo)) && luminancia(texto(c.cor_fundo)) >= 0.75 ? texto(c.cor_fundo) : '',
       catalogo_taxa_mes: Math.min(10, Math.max(0, numero(c.catalogo_taxa_mes, 1.99))),
       catalogo_entrada_pct: Math.min(90, Math.max(0, numero(c.catalogo_entrada_pct, 30))),
     });

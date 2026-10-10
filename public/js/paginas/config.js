@@ -38,19 +38,73 @@ async function catalogo(el, topo) {
         { nome: 'catalogo_titulo', rotulo: 'Título da página inicial', largura: 4, attrs: 'maxlength="120" placeholder="Seminovos revisados em Ocara e região"' },
         { nome: 'catalogo_sobre', rotulo: 'Texto de apresentação', tipo: 'area', largura: 4, attrs: 'rows="3" maxlength="2000"' },
         { nome: 'horario', rotulo: 'Horário de atendimento', largura: 2, attrs: 'placeholder="Seg a sex 8h às 18h · Sáb 8h às 12h"' },
-        { nome: 'instagram', rotulo: 'Instagram', largura: 1, attrs: 'placeholder="@sualoja"' },
-        { nome: 'cor_marca', rotulo: 'Cor da marca', tipo: 'cor', largura: 1 },
+        { nome: 'instagram', rotulo: 'Instagram', largura: 2, attrs: 'placeholder="@sualoja"' },
         { nome: 'catalogo_taxa_mes', rotulo: 'Juros do simulador (% ao mês)', tipo: 'numero', largura: 2, dica: 'Usado só na estimativa de parcelas que o cliente vê. Ex.: 1,99' },
         { nome: 'catalogo_entrada_pct', rotulo: 'Entrada sugerida (%)', tipo: 'numero', largura: 2, dica: 'Valor inicial da barra de entrada no simulador.' },
-    ], { ...e, cor_marca: e.cor_marca || '#f26b1d' })}</div>
+    ], e)}</div>
     <p class="mudo pequeno">WhatsApp, endereço e logo vêm da aba "Loja e documentos". Para um veículo aparecer, abra-o em Veículos e marque "Publicar no catálogo".</p>`)}
+    ${secao('olho', 'laranja', 'Cores do site', 'Valem para o catálogo e para os destaques deste painel', html `
+      <div class="cores-prontas" role="group" aria-label="Combinações prontas">
+        ${CORES_PRONTAS.map(([nome, marca, faixa]) => html `<button type="button" class="cor-pronta" data-marca="${marca}" data-faixa="${faixa}" title="${nome}"><span style="background:${marca}"></span><span style="background:${faixa}"></span><b>${nome}</b></button>`)}
+      </div>
+      <div class="cores-grade">
+        <label class="cor-campo"><span>Cor principal</span><small>Botões, preços, destaques</small><input type="color" name="cor_marca" value="${e.cor_marca || '#f26b1d'}"></label>
+        <label class="cor-campo"><span>Faixas de destaque</span><small>Topo do site, simulador e chamadas</small><input type="color" name="cor_faixa" value="${e.cor_faixa || '#3d1405'}" ${e.cor_faixa ? '' : 'disabled'}>
+          <span class="check"><input type="checkbox" data-auto="cor_faixa" ${e.cor_faixa ? '' : 'checked'}> Automática (a partir da principal)</span></label>
+        <label class="cor-campo"><span>Fundo</span><small>Precisa ser uma cor clara</small><input type="color" name="cor_fundo" value="${e.cor_fundo || '#ffffff'}" ${e.cor_fundo ? '' : 'disabled'}>
+          <span class="check"><input type="checkbox" data-auto="cor_fundo" ${e.cor_fundo ? '' : 'checked'}> Branco</span></label>
+      </div>
+      <div class="previa-cores" aria-hidden="true">
+        <div class="previa-faixa"><b>Seminovos revisados</b><span>na sua cidade</span><i class="previa-vidro">R$ 64.900</i></div>
+        <div class="previa-claro"><b>Estoque completo</b><span class="previa-botao">Buscar</span><span class="previa-selo">7% abaixo da FIPE</span></div>
+      </div>
+      <p class="mudo pequeno">As cores novas aparecem no catálogo em até 1 minuto depois de salvar.</p>`)}
     ${admin ? html `<div class="acoes-form fixo"><button type="submit">Salvar catálogo</button></div>` : ''}
   </form></div>`);
     const f = $('#f-cat', el);
     if (!admin)
         f.querySelectorAll('input, select, textarea').forEach((i) => (i.disabled = true));
-    aoEnviar(f, async (d) => { await api.put('/api/empresa', d); aviso('Catálogo salvo.'); });
+    // Cores: "automática" limpa o campo (o site calcula a partir da cor principal); prévia ao vivo
+    const previa = f.querySelector('.previa-cores');
+    const atualizarPrevia = () => {
+        if (!previa)
+            return;
+        const v = (n) => { const i = f.querySelector(`input[name=${n}]`); return i.disabled ? '' : i.value; };
+        const marca = v('cor_marca') || '#f26b1d';
+        previa.style.setProperty('--p-marca', marca);
+        previa.style.setProperty('--p-faixa', v('cor_faixa') || `color-mix(in oklab, ${marca} 34%, #160600)`);
+        previa.style.setProperty('--p-fundo', v('cor_fundo') || '#ffffff');
+    };
+    f.querySelectorAll('[data-auto]').forEach((ch) => ch.addEventListener('change', () => {
+        f.querySelector(`input[name=${ch.dataset.auto}]`).disabled = ch.checked || !admin;
+        atualizarPrevia();
+    }));
+    f.querySelectorAll('.cor-pronta').forEach((b) => b.addEventListener('click', () => {
+        if (!admin)
+            return;
+        f.querySelector('input[name=cor_marca]').value = b.dataset.marca;
+        const faixa = f.querySelector('input[name=cor_faixa]');
+        faixa.value = b.dataset.faixa;
+        faixa.disabled = false;
+        f.querySelector('[data-auto=cor_faixa]').checked = false;
+        atualizarPrevia();
+    }));
+    f.addEventListener('input', atualizarPrevia);
+    atualizarPrevia();
+    aoEnviar(f, async (d) => {
+        for (const n of ['cor_faixa', 'cor_fundo'])
+            if (f.querySelector(`[data-auto=${n}]`).checked)
+                d[n] = '';
+        await api.put('/api/empresa', d);
+        aviso('Catálogo salvo.');
+        window.dispatchEvent(new Event('loja-alterada'));
+    });
 }
+/** Combinações prontas: [nome, cor principal, cor das faixas]. */
+const CORES_PRONTAS = [
+    ['Laranja', '#f26b1d', '#3d1405'], ['Vermelho', '#e0262d', '#3b0709'], ['Azul', '#1d6ff2', '#071a3d'],
+    ['Verde', '#16a35a', '#05301a'], ['Roxo', '#8a2be2', '#22083f'], ['Dourado', '#d49a1a', '#2e1f05'], ['Grafite', '#3a4250', '#12161c'],
+];
 async function loja(el, topo) {
     const e = await api.get('/api/empresa');
     const admin = pode('config.editar');

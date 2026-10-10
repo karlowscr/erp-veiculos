@@ -96,6 +96,13 @@ const titulo2 = (t, tag = 'h2', extra = '') => {
     const [a, b] = duasLinhas(t);
     return `<${tag} class="titulo-duplo"${extra}>${esc(a)}${b ? ` <span>${esc(b)}</span>` : ''}</${tag}>`;
 };
+/** Cores opcionais da loja: faixas de destaque e fundo (sem elas, tudo deriva da cor principal). */
+function coresExtras(e) {
+    const hex = (s) => (/^#[0-9a-fA-F]{6}$/.test(String(s ?? '')) ? String(s) : '');
+    const faixa = hex(e.cor_faixa), fundo = hex(e.cor_fundo);
+    return (faixa ? `;--brasa:${faixa};--brasa-2:color-mix(in oklab, ${faixa} 72%, var(--marca))` : '')
+        + (fundo ? `;--papel:${fundo};--nevoa:color-mix(in oklab, ${fundo} 92%, var(--marca))` : '');
+}
 function layout(ctx, req, e, op) {
     const loja = nomeLoja(e);
     const origem = origemSite(ctx, req);
@@ -117,7 +124,7 @@ ${logo ? `<link rel="icon" href="${esc(logo)}">` : ''}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/s/catalogo.css?v=${versaoSite.css}">
-<style>:root{--marca:${cor}}</style>
+<style>:root{--marca:${cor}${coresExtras(e)}}</style>
 ${op.jsonLd ? `<script type="application/ld+json">${JSON.stringify(op.jsonLd).replace(/</g, '\\u003c')}</script>` : ''}
 </head><body class="${op.classe ?? ''}" data-whats="${esc(whatsapp(e))}" data-loja="${esc(loja)}">
 <a class="pular" href="#principal">Ir para o conteúdo</a>

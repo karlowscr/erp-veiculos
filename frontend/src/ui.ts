@@ -319,6 +319,11 @@ export async function arquivoParaEnvio(arq: File, maxLado = 2000): Promise<strin
     c.width = Math.round(bmp.width * escala);
     c.height = Math.round(bmp.height * escala);
     c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+    // PNG e WEBP podem ter fundo transparente: mantém a transparência (JPEG pintaria o fundo)
+    if (arq.type === 'image/png' || arq.type === 'image/webp') {
+      const webp = c.toDataURL('image/webp', 0.92);
+      return webp.startsWith('data:image/webp') ? webp : c.toDataURL('image/png');
+    }
     return c.toDataURL('image/jpeg', 0.85);
   } catch {
     return lerArquivoBase64(arq);

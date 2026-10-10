@@ -160,8 +160,22 @@ async function carregarLoja() {
         const e = await api.get('/api/empresa');
         loja.nome = e.nome_fantasia || e.razao_social || 'Pátio';
         loja.logo = e.logo || '';
+        aplicarCor(e.cor_marca);
     }
     catch { /* mantém o padrão */ }
+}
+/** A cor principal escolhida em Configurações também colore os destaques do painel. */
+function aplicarCor(cor) {
+    const r = document.documentElement.style;
+    if (!cor || !/^#[0-9a-fA-F]{6}$/.test(cor)) {
+        for (const v of ['--laranja', '--laranja-escuro', '--laranja-claro', '--laranja-borda'])
+            r.removeProperty(v);
+        return;
+    }
+    r.setProperty('--laranja', cor);
+    r.setProperty('--laranja-escuro', `color-mix(in oklab, ${cor} 82%, #000)`);
+    r.setProperty('--laranja-claro', `color-mix(in oklab, ${cor} 9%, #fff)`);
+    r.setProperty('--laranja-borda', `color-mix(in oklab, ${cor} 32%, #fff)`);
 }
 /** Redesenha a marca depois que a logo ou o nome mudam nas configurações. */
 function atualizarMarca() {

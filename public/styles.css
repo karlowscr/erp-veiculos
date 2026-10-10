@@ -70,7 +70,7 @@ p { margin: 0 0 .8rem; }
 }
 .marca { display: flex; align-items: center; gap: .65rem; padding: 1.1rem 1.15rem; color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.06); }
 .marca b { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.marca img { width: 38px; height: 38px; object-fit: contain; border-radius: 10px; background: #fff; padding: 3px; flex: none; }
+.marca img { width: 38px; height: 38px; object-fit: contain; flex: none; }
 .marca-sigla { width: 36px; height: 36px; border-radius: 10px; background: var(--laranja); display: grid; place-items: center; font-weight: 800; font-size: .82rem; letter-spacing: .02em; flex: none; box-shadow: 0 4px 12px rgba(249,115,22,.35); }
 #menu { flex: 1; overflow-y: auto; padding: .7rem .7rem 1rem; }
 .grupo + .grupo { margin-top: .55rem; }
@@ -354,7 +354,9 @@ details.dados-novo summary { cursor: pointer; font-weight: 600; color: var(--lar
 .logo-area { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; }
 .logo-area .botoes, .logo-area > div:last-child { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
 .logo-area > div:last-child p { flex-basis: 100%; margin: .2rem 0 0; }
-.logo-previa { width: 112px; height: 112px; border: 1.5px dashed var(--linha-forte); border-radius: var(--raio-g); display: grid; place-items: center; color: #aab3c2; background: #fafbfc; overflow: hidden; }
+.logo-previa { width: 112px; height: 112px; border: 1.5px dashed var(--linha-forte); border-radius: var(--raio-g); display: grid; place-items: center; color: #aab3c2; overflow: hidden;
+  /* quadriculado: mostra que a logo tem fundo transparente */
+  background: repeating-conic-gradient(#eef1f5 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
 .logo-previa img { width: 100%; height: 100%; object-fit: contain; padding: 8px; }
 .link-gerado { display: flex; align-items: center; gap: .5rem; background: var(--verde-claro); border: 1px solid #c6e7d1; color: var(--verde); border-radius: var(--raio); padding: .7rem .9rem; font-size: .88rem; margin: 0; }
 .link-gerado:empty { display: none; }
@@ -557,3 +559,26 @@ button.link.perigo:not(.icone-btn):not(.sec) { color: var(--vermelho); backgroun
 .passos small { display: block; }
 .botao.verde { background: var(--verde); border-color: var(--verde); color: #fff; }
 .cartao.inativo { opacity: .7; }
+
+/* Cores do site (Configurações > Catálogo) */
+.cores-prontas { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.1rem; }
+.cor-pronta { display: inline-flex; align-items: center; gap: .35rem; background: var(--superficie); border: 1px solid var(--linha); border-radius: 999px; padding: .35rem .8rem .35rem .4rem; cursor: pointer; font: inherit; color: var(--tinta); }
+.cor-pronta:hover { border-color: var(--laranja); }
+.cor-pronta span { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); }
+.cor-pronta span + span { margin-left: -.6rem; outline: 2px solid var(--superficie); }
+.cor-pronta b { font-weight: 500; font-size: .9rem; }
+.cores-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }
+.cor-campo { display: flex; flex-direction: column; gap: .25rem; font-weight: 600; }
+.cor-campo small { font-weight: 400; color: var(--tinta-3); }
+.cor-campo input[type=color] { width: 100%; height: 44px; border: 1px solid var(--linha-forte); border-radius: var(--raio); padding: 3px; background: var(--superficie); cursor: pointer; }
+.cor-campo input[type=color]:disabled { opacity: .35; cursor: not-allowed; }
+.cor-campo .check { font-weight: 400; font-size: .88rem; display: flex; gap: .4rem; align-items: center; color: var(--tinta-2); }
+.previa-cores { margin-top: 1.2rem; border-radius: 18px; overflow: hidden; border: 1px solid var(--linha); background: var(--p-fundo, #fff); font-family: 'Bricolage Grotesque', var(--fonte); }
+.previa-faixa { position: relative; padding: 1.4rem 1.4rem 1.6rem; color: #fff; background: radial-gradient(60% 90% at 70% 100%, color-mix(in oklab, var(--p-marca) 85%, #ffc596), transparent 70%), linear-gradient(170deg, color-mix(in oklab, var(--p-faixa) 70%, var(--p-marca)), var(--p-faixa)); }
+.previa-faixa b { display: block; font-weight: 300; font-size: 1.6rem; letter-spacing: -.03em; line-height: 1.05; }
+.previa-faixa span { display: block; font-weight: 300; font-size: 1.6rem; letter-spacing: -.03em; color: color-mix(in oklab, var(--p-marca) 45%, #ffe9d6); }
+.previa-vidro { position: absolute; right: 1.2rem; top: 1.2rem; font-style: normal; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); border-radius: 14px; padding: .5rem .8rem; font-size: 1.1rem; }
+.previa-claro { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; padding: 1rem 1.4rem; color: #21160f; }
+.previa-claro b { font-weight: 300; font-size: 1.3rem; letter-spacing: -.02em; margin-right: auto; }
+.previa-botao { background: var(--p-marca); color: #fff; border-radius: 999px; padding: .4rem 1rem; font-size: .9rem; }
+.previa-selo { background: color-mix(in oklab, var(--p-marca) 12%, #fff); color: color-mix(in oklab, var(--p-marca) 78%, #000); border-radius: 999px; padding: .3rem .8rem; font-size: .85rem; }
