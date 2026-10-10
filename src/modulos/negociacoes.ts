@@ -275,7 +275,10 @@ export function registrarNegociacoes(app: App, b: Banco): void {
       : null;
     return {
       ...n, veiculo,
-      troca: n.troca_veiculo_id ? b.one('SELECT id, marca, modelo, placa, ano_mod FROM veiculos WHERE id = ?', [n.troca_veiculo_id]) : null,
+      troca: n.troca_veiculo_id ? {
+        ...b.one('SELECT id, marca, modelo, placa, ano_mod FROM veiculos WHERE id = ?', [n.troca_veiculo_id]),
+        negociacao_id: b.one("SELECT id FROM negociacoes WHERE veiculo_id = ? AND tipo = 'compra' AND id <> ? ORDER BY id DESC LIMIT 1", [n.troca_veiculo_id, id])?.id ?? null,
+      } : null,
       pagamentos: b.all('SELECT * FROM negociacao_pagamentos WHERE negociacao_id = ?', [id]),
       titulos: b.all('SELECT * FROM titulos WHERE negociacao_id = ? ORDER BY tipo, vencimento', [id]),
       nfes: b.all('SELECT id, numero, serie, chave, status, cstat, xmotivo, tipo_nf, perfil_codigo, emitida_em FROM nfes WHERE negociacao_id = ? ORDER BY id', [id]),
@@ -285,7 +288,15 @@ export function registrarNegociacoes(app: App, b: Banco): void {
 
   app.post('/api/negociacoes/compra', (req) => ({ id: comprar(b, req.usuario!, req.corpo) }));
   app.post('/api/negociacoes/consignacao', (req) => ({ id: consignar(b, req.usuario!, req.corpo) }));
-  app.post('/api/negociacoes/venda', (req) => ({ id: vender(b, req.usuario!, req.corpo) }));
+  app.post('/api/negociacoes/venda', (req) => {
+    const id = vender(b, req.usuario!, req.corpo);
+    // A troca vira uma compra própria (com a NF-e de entrada dela)
+    const n = b.one('SELECT troca_veiculo_id FROM negociacoes WHERE id = ?', [id])!;
+    const troca = n.troca_veiculo_id
+      ? b.one("SELECT id FROM negociacoes WHERE veiculo_id = ? AND tipo = 'compra' AND status = 'concluida' ORDER BY id DESC LIMIT 1", [n.troca_veiculo_id])
+      : undefined;
+    return { id, troca_veiculo_id: n.troca_veiculo_id ?? null, troca_negociacao_id: troca?.id ?? null };
+  });
   app.post('/api/negociacoes/devolucao-consignacao', (req) => ({ id: devolverConsignacao(b, req.usuario!, req.corpo) }));
   app.post('/api/negociacoes/:id/cancelar', (req) => {
     cancelarNegociacao(b, req.usuario!, Number(req.params.id), texto(req.corpo.motivo));

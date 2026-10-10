@@ -1,7 +1,7 @@
 import { api, pode } from '../api.js';
 import { icone } from '../icones.js';
 import { html, montar, $, campos, aviso, moeda, arquivoParaEnvio, lerForm, mostrarErro, cabecalhoPagina, type Campo } from '../ui.js';
-import { camposVeiculo, extrairDadosVeiculo } from './veiculos.js';
+import { camposVeiculo, extrairDadosVeiculo, emitirNotaAgora } from './veiculos.js';
 
 /**
  * Entrada de veículo pelo celular: foto do documento (CRV verde ou CRLV-e branco),
@@ -13,7 +13,7 @@ const SEM_PRECO = new Set(['preco_venda', 'preco_minimo', 'obs', 'ncm']);
 const camposDoc = (): Campo[] => camposVeiculo().filter((c) => !SEM_PRECO.has(c.nome));
 
 export async function render(el: HTMLElement) {
-  const estado: { documento?: string; fipe?: Fipe; fotos: File[]; lendo: boolean; criado?: number; enviadas: number } = { fotos: [], lendo: false, enviadas: 0 };
+  const estado: { documento?: string; fipe?: Fipe; fotos: File[]; lendo: boolean; criado?: number; negociacao?: number; notaFeita?: boolean; enviadas: number } = { fotos: [], lendo: false, enviadas: 0 };
   const podeComprar = pode('negociacoes.comprar');
   const podeConsignar = pode('negociacoes.consignar');
   const origemPadrao = podeComprar ? 'compra' : podeConsignar ? 'consignacao' : 'estoque';
@@ -63,6 +63,7 @@ export async function render(el: HTMLElement) {
       { nome: 'preco_minimo', rotulo: 'Preço mínimo', tipo: 'moeda', largura: 1, dica: 'Abaixo disso só quem tem permissão vende.' },
     ], { forma_pagamento: 'pix' })}</div>
     <div id="margem" class="margem-caixa" aria-live="polite"></div>
+    ${pode('notas.emitir') ? html`<label class="nota-auto" id="nota-entrada"><input type="checkbox" name="emitir_nota" checked><span><b>Emitir a NF-e de entrada ao salvar</b><small>Nota de compra (ou de entrada em consignação) com os dados lidos do documento.</small></span></label>` : ''}
   </section>
 
   <section class="bloco passo">
@@ -156,6 +157,8 @@ export async function render(el: HTMLElement) {
   const atualizarOrigem = () => {
     const o = (f.querySelector('input[name=origem]:checked') as HTMLInputElement)?.value ?? 'estoque';
     $('#g-dono', el).hidden = o === 'estoque';
+    const nota = el.querySelector<HTMLElement>('#nota-entrada');
+    if (nota) nota.hidden = o === 'estoque';
     (campo('forma_pagamento') as HTMLElement).closest('.campo')!.toggleAttribute('hidden', o !== 'compra');
     const rotuloCusto = (campo('custo') as HTMLElement).closest('.campo')!.querySelector('label')!;
     rotuloCusto.textContent = o === 'consignacao' ? 'Valor líquido combinado com o dono' : 'Quanto a loja pagou';
@@ -205,7 +208,7 @@ export async function render(el: HTMLElement) {
     if (btn.disabled) return;
     const d = lerForm(f);
     const origem = (f.querySelector('input[name=origem]:checked') as HTMLInputElement)?.value ?? 'estoque';
-    const { dono_nome, dono_doc, dono_telefone, custo, forma_pagamento, preco_venda, preco_minimo, publicar, descricao_catalogo, ...resto } = d;
+    const { dono_nome, dono_doc, dono_telefone, custo, forma_pagamento, preco_venda, preco_minimo, publicar, descricao_catalogo, emitir_nota, ...resto } = d;
     delete (resto as any).origem;
     const veiculo = extrairDadosVeiculo(resto);
     btn.disabled = true;
@@ -219,6 +222,7 @@ export async function render(el: HTMLElement) {
           proprietario: { nome: dono_nome, cpf_cnpj: dono_doc, telefone: dono_telefone }, fipe: estado.fipe?.fipe_valor ? estado.fipe : undefined,
         });
         estado.criado = novo.id;
+        estado.negociacao = novo.negociacao_id ?? undefined;
       }
       const r = { id: estado.criado! };
       for (let i = estado.enviadas; i < estado.fotos.length; i++) {
@@ -227,7 +231,13 @@ export async function render(el: HTMLElement) {
         estado.enviadas = i + 1;
       }
       if (publicar && estado.fotos.length) await api.post(`/api/veiculos/${r.id}/catalogo`, { publicado: true });
-      aviso(`Veículo cadastrado${publicar && estado.fotos.length ? ' e publicado no catálogo' : ''}.`);
+      const msgs = [`Veículo cadastrado${publicar && estado.fotos.length ? ' e publicado no catálogo' : ''}.`];
+      if (emitir_nota && estado.negociacao && origem !== 'estoque' && !estado.notaFeita) {
+        btn.textContent = 'Emitindo NF-e de entrada…';
+        msgs.push(await emitirNotaAgora(estado.negociacao, 'de entrada'));
+        estado.notaFeita = true;
+      }
+      aviso(msgs.join(' '), msgs.some((m) => /não emitida|rejeit|erro/i.test(m)) ? 'erro' : 'ok');
       location.hash = `#/veiculos/${r.id}`;
     } catch (e) {
       mostrarErro(e);

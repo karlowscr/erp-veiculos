@@ -310,3 +310,69 @@ async function detalhe(el: HTMLElement, id: number) {
     'renave-consultar': async () => { const r = await api.post(`/api/veiculos/${id}/renave/consultar`); aviso(r.mensagem, r.ok ? 'ok' : 'erro'); recarregar(); },
   });
 }
+
+// ---------- Leitura do documento (CRV / CRLV) reutilizada em venda com troca, compra e consignação ----------
+
+export interface LeituraDocumento { documento: string; dados: Record<string, any>; avisos: string[]; existente?: any; proprietario?: any }
+
+/** Botões para fotografar ou enviar o documento + área do resultado. */
+export function leitorDocumentoHtml(titulo = 'Ler o documento pela foto') {
+  return html`<div class="leitor-doc" data-leitor>
+    <p class="leitor-titulo">${icone('camera', 18)}<b>${titulo}</b><span class="mudo">CRV, CRLV ou CRLV-e (foto ou PDF). Os dados abaixo são preenchidos sozinhos.</span></p>
+    <div class="botoes-grandes">
+      <label class="botao grande">${icone('camera', 20)}<span>Fotografar documento</span><input type="file" accept="image/*" capture="environment" data-doc hidden></label>
+      <label class="botao sec grande">${icone('upload', 20)}<span>Enviar foto ou PDF</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" data-doc hidden></label>
+    </div>
+    <div class="leitor-resultado" aria-live="polite"></div>
+  </div>`;
+}
+
+/**
+ * Liga o leitor: ao ler, preenche os campos do veículo dentro de `escopo`
+ * e chama `aoLer` com o arquivo guardado (para anexar ao cadastro depois).
+ */
+export function ligarLeitorDocumento(raiz: HTMLElement, escopo: HTMLElement, aoLer: (l: LeituraDocumento) => void) {
+  const caixa = raiz.querySelector<HTMLElement>('.leitor-resultado')!;
+  let lendo = false;
+  const set = (n: string, v: unknown) => {
+    const c = escopo.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${n}"]`);
+    if (c && v !== undefined && v !== null && v !== '') c.value = String(v);
+  };
+  raiz.querySelectorAll<HTMLInputElement>('[data-doc]').forEach((inp) => inp.addEventListener('change', async () => {
+    const arq = inp.files?.[0];
+    inp.value = '';
+    if (!arq || lendo) return;
+    lendo = true;
+    caixa.innerHTML = html`<div class="lendo"><span class="girando"></span>Lendo o documento… isso leva alguns segundos.</div>`.s;
+    try {
+      const r: LeituraDocumento = await api.post('/api/veiculos/ler-documento', { arquivo: await arquivoParaEnvio(arq, 2200) });
+      const d = r.dados;
+      for (const k of ['placa', 'renavam', 'chassi', 'marca', 'modelo', 'versao', 'ano_fab', 'ano_mod', 'cor', 'combustivel', 'motor', 'potencia', 'cilindrada']) set(k, d[k]);
+      if (d.tipo_veiculo) set('tipo', d.tipo_veiculo);
+      set('condicao', 'usado');
+      caixa.innerHTML = html`
+        <div class="leitura-ok">${icone('ok', 18)}<div><b>${d.tipo_documento ?? 'Documento'} lido: ${d.marca ?? ''} ${d.modelo ?? ''} ${d.ano_fab ?? ''}/${d.ano_mod ?? ''}${d.placa ? ' — ' + d.placa : ''}</b>
+          <small>${d.proprietario_nome ? `Proprietário no documento: ${d.proprietario_nome}${d.proprietario_doc ? ` (${d.proprietario_doc})` : ''}. ` : ''}Confira os campos antes de concluir. A imagem fica anexada ao cadastro do veículo.</small></div></div>
+        ${r.avisos?.length ? html`<ul class="avisos-leitura">${r.avisos.map((a: string) => html`<li>${icone('alerta', 15)}${a}</li>`)}</ul>` : ''}
+        ${r.existente ? html`<p class="alerta-caixa">Este chassi já está cadastrado: <a href="#/veiculos/${r.existente.id}">${r.existente.marca} ${r.existente.modelo} ${r.existente.placa}</a> (${rotulo(r.existente.situacao)}).</p>` : ''}`.s;
+      aoLer(r);
+    } catch (e) {
+      caixa.innerHTML = html`<p class="alerta-caixa">${(e as Error).message}</p>`.s;
+    } finally {
+      lendo = false;
+    }
+  }));
+}
+
+/**
+ * Emite a NF-e de uma negociação logo depois de registrá-la. Não bloqueia:
+ * se faltar certificado, endereço etc., avisa e a nota pode ser emitida depois.
+ */
+export async function emitirNotaAgora(negociacaoId: number, descricao: string): Promise<string> {
+  try {
+    const r = await api.post(`/api/negociacoes/${negociacaoId}/nfe`, {});
+    return r.status === 'autorizada' ? `NF-e ${descricao} nº ${r.numero} autorizada.` : `NF-e ${descricao}: ${rotulo(r.status)}${r.xmotivo ? ' — ' + r.xmotivo : ''}. Confira na negociação.`;
+  } catch (e) {
+    return `NF-e ${descricao} não emitida: ${(e as Error).message} Emita depois pela negociação.`;
+  }
+}

@@ -1,7 +1,7 @@
 import { api, pode, sessao } from '../api.js';
 import { html, montar, $, $$, acoes, campos, aoEnviar, lerForm, modal, aviso, moeda, data, doc, placa, selo, rotulo, hoje, vazio, } from '../ui.js';
 import { seletorPessoa } from './pessoas.js';
-import { formVeiculoHtml, extrairDadosVeiculo } from './veiculos.js';
+import { formVeiculoHtml, extrairDadosVeiculo, leitorDocumentoHtml, ligarLeitorDocumento, emitirNotaAgora } from './veiculos.js';
 const FORMAS = [
     ['pix', 'PIX'], ['dinheiro', 'Dinheiro'], ['transferencia', 'Transferência'], ['cartao_debito', 'Cartão de débito'],
     ['cartao_credito', 'Cartão de crédito'], ['financiamento', 'Financiamento'], ['boleto', 'Boleto'], ['promissoria', 'Promissória'], ['cheque', 'Cheque'],
@@ -125,6 +125,7 @@ async function novaVenda(el) {
     ])}<div class="campo l2 consig" hidden><label for="f_rep">Repasse ao proprietário</label><input id="f_rep" type="number" step="0.01" name="repasse_valor"><small>Vazio usa o valor combinado na consignação.</small></div></div>
       <label class="check"><input type="checkbox" id="tem-troca"> Cliente vai dar um veículo na troca</label>
       <div id="troca" hidden data-ignorar><h3>Veículo da troca</h3>
+        ${leitorDocumentoHtml('Fotografe o documento do carro da troca')}
         <div class="grade-form">${campos([{ nome: 'valor_troca', rotulo: 'Valor de avaliação', tipo: 'moeda', largura: 1 }])}</div>
         <div data-troca>${formVeiculoHtml()}</div></div>
     </section>
@@ -133,11 +134,14 @@ async function novaVenda(el) {
       <button type="button" class="sec" data-add-pag>Adicionar forma de pagamento</button>
       <p class="conferencia" aria-live="polite"></p>
       ${campos([{ nome: 'obs', rotulo: 'Observações', tipo: 'area', largura: 4 }])}
+      ${pode('notas.emitir') ? html `<label class="nota-auto"><input type="checkbox" id="emitir-notas" checked><span><b>Emitir as notas fiscais ao concluir</b><small>NF-e de venda e, se houver troca, a NF-e de entrada do veículo recebido.</small></span></label>` : ''}
     </section>
     <div class="acoes-form"><a class="botao sec" href="#/negociacoes">Voltar</a><button type="submit">Concluir venda</button></div>
   </form>`);
     const f = $('#f-venda', el);
     seletorPessoa($('#sel-cliente', el), 'pessoa_id', 'Cliente', { obrigatorio: true });
+    let docTroca = '';
+    ligarLeitorDocumento($('#troca [data-leitor]', el), $('[data-troca]', el), (l) => { docTroca = l.documento; });
     const selVeic = $('#f_veic', el);
     const conferir = () => {
         const d = lerForm(f);
@@ -176,7 +180,16 @@ async function novaVenda(el) {
                 corpo.troca = { valor: $('[name=valor_troca]', el).value, veiculo: extrairDadosVeiculo(t) };
             }
             const r = await api.post('/api/negociacoes/venda', corpo);
-            aviso('Venda registrada.');
+            if (r.troca_veiculo_id && docTroca)
+                await api.post(`/api/veiculos/${r.troca_veiculo_id}/documento`, { documento: docTroca }).catch(() => undefined);
+            const msgs = ['Venda registrada.'];
+            if (document.querySelector('#emitir-notas')?.checked) {
+                btn.textContent = 'Emitindo notas…';
+                if (r.troca_negociacao_id)
+                    msgs.push(await emitirNotaAgora(r.troca_negociacao_id, 'de entrada da troca'));
+                msgs.push(await emitirNotaAgora(r.id, 'de venda'));
+            }
+            aviso(msgs.join(' '), msgs.some((m) => /não emitida|rejeit|erro/i.test(m)) ? 'erro' : 'ok');
             location.hash = `#/negociacoes/${r.id}`;
         }
         catch (e) {
@@ -200,14 +213,17 @@ async function novaEntrada(el, tipo) {
         { nome: 'data', rotulo: 'Data', tipo: 'data', largura: 1 },
     ], { data: hoje() })}</div>
     </section>
-    <section class="bloco"><h2>Veículo</h2><div data-veic>${formVeiculoHtml()}</div></section>
+    <section class="bloco"><h2>Veículo</h2>${leitorDocumentoHtml()}<div data-veic>${formVeiculoHtml()}</div></section>
     ${compra ? html `<section class="bloco"><h2>Pagamento ao vendedor</h2><p class="mudo">Sem formas de pagamento, o sistema gera uma conta a pagar com vencimento na data da compra.</p>
       <div class="pagamentos"><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div><button type="button" class="sec" data-add-pag>Adicionar forma de pagamento</button><p class="conferencia"></p></section>` : ''}
-    <section class="bloco">${campos([{ nome: 'obs', rotulo: 'Observações', tipo: 'area', largura: 4 }])}</section>
+    <section class="bloco">${campos([{ nome: 'obs', rotulo: 'Observações', tipo: 'area', largura: 4 }])}
+      ${pode('notas.emitir') ? html `<label class="nota-auto"><input type="checkbox" id="emitir-notas" checked><span><b>Emitir a NF-e de entrada ao concluir</b><small>${compra ? 'Nota de compra do veículo usado.' : 'Nota de entrada em consignação.'}</small></span></label>` : ''}</section>
     <div class="acoes-form"><a class="botao sec" href="#/negociacoes">Voltar</a><button type="submit">${compra ? 'Concluir compra' : 'Concluir consignação'}</button></div>
   </form>`);
     seletorPessoa($('#sel-pessoa', el), 'pessoa_id', compra ? 'Vendedor' : 'Proprietário', { obrigatorio: true });
     const f = $('#f-ent', el);
+    let docVeic = '';
+    ligarLeitorDocumento($('[data-leitor]', el), $('[data-veic]', el), (l) => { docVeic = l.documento; });
     if (compra) {
         const conferir = () => {
             const valor = Number($('[name=valor]', el).value || 0);
@@ -232,7 +248,16 @@ async function novaEntrada(el, tipo) {
                 ...(compra ? { valor: g('valor'), pagamentos: lerPagamentos(el) } : { valor_repasse: g('valor_repasse') }),
             };
             const r = await api.post(`/api/negociacoes/${tipo}`, corpo);
-            aviso(compra ? 'Compra registrada. Veículo no estoque.' : 'Consignação registrada. Veículo no estoque.');
+            if (docVeic) {
+                const n = await api.get(`/api/negociacoes/${r.id}`);
+                await api.post(`/api/veiculos/${n.veiculo.id}/documento`, { documento: docVeic }).catch(() => undefined);
+            }
+            const msgs = [compra ? 'Compra registrada. Veículo no estoque.' : 'Consignação registrada. Veículo no estoque.'];
+            if (document.querySelector('#emitir-notas')?.checked) {
+                btn.textContent = 'Emitindo nota…';
+                msgs.push(await emitirNotaAgora(r.id, 'de entrada'));
+            }
+            aviso(msgs.join(' '), msgs.some((m) => /não emitida|rejeit|erro/i.test(m)) ? 'erro' : 'ok');
             location.hash = `#/negociacoes/${r.id}`;
         }
         catch (e) {
@@ -268,7 +293,7 @@ async function detalhe(el, id) {
       <div><span>Resultado da venda</span><b class="${n.resultado < 0 ? 'neg' : ''}">${moeda(n.resultado)}</b><small>${v.origem === 'consignacao' ? `repasse ${moeda(n.repasse_valor)}` : `custo ${moeda(n.custo_veiculo)}`}, já descontada a comissão</small></div>` : ''}
     ${n.tipo === 'consignacao' ? html `<div><span>Repasse combinado</span><b>${moeda(n.repasse_valor)}</b></div>` : ''}
   </section>
-  ${n.troca ? html `<p>Veículo recebido na troca: <a href="#/veiculos/${n.troca.id}">${n.troca.marca} ${n.troca.modelo} ${n.troca.ano_mod} ${n.troca.placa}</a></p>` : ''}
+  ${n.troca ? html `<p>Veículo recebido na troca: <a href="#/veiculos/${n.troca.id}">${n.troca.marca} ${n.troca.modelo} ${n.troca.ano_mod} ${n.troca.placa}</a>${n.troca.negociacao_id ? html ` · <a href="#/negociacoes/${n.troca.negociacao_id}">entrada da troca e NF-e de entrada</a>` : ''}</p>` : ''}
 
   <div class="grade-2">
     <section class="bloco"><h2>Nota fiscal</h2>

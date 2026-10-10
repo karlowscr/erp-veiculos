@@ -153,6 +153,12 @@ test('venda com troca e financiamento, comissão e títulos', async () => {
   assert.equal(n.comissao_valor, 1065);
   assert.ok(n.troca, 'veículo da troca registrado');
   ids.vTroca = n.troca.id;
+  // A troca vira uma compra com NF-e de entrada própria, que pode ser emitida logo após a venda
+  assert.equal(r.troca_veiculo_id, n.troca.id);
+  assert.ok(r.troca_negociacao_id && n.troca.negociacao_id === r.troca_negociacao_id, 'compra da troca ligada à venda');
+  const previaTroca = await adm.ok('GET', `/api/negociacoes/${r.troca_negociacao_id}/nfe/previa`);
+  assert.match(String(previaTroca.cfop), /^1/, 'NF-e de entrada (CFOP 1xxx)');
+  assert.equal((await adm.req('POST', `/api/veiculos/${n.troca.id}/documento`, { documento: 'docveic-0000000000000000.jpg' })).status, 400, 'só documento lido de verdade');
   assert.equal(n.resultado, 71000 - 58800 - 1065);
   const receber = n.titulos.filter((t: any) => t.tipo === 'receber');
   assert.equal(receber.length, 2);

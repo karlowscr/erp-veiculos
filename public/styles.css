@@ -610,3 +610,16 @@ button.link.perigo:not(.icone-btn):not(.sec) { color: var(--vermelho); backgroun
 .chip-fechado { display: inline-flex; align-items: center; gap: .3rem; background: var(--laranja-claro); color: var(--laranja-escuro); border: 1px solid var(--laranja-borda); border-radius: 999px; padding: .2rem .4rem .2rem .7rem; font-size: .88rem; }
 .chip-fechado button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 1rem; padding: 0 .2rem; }
 @media (max-width: 620px) { .agenda-linha { grid-template-columns: 1fr 1fr; } .agenda-linha .mudo { display: none; } .agenda-linha label { grid-column: 1 / -1; } }
+
+/* Leitor de documento dentro de formulários (troca, compra, consignação) */
+.leitor-doc { border: 1.5px dashed var(--laranja-borda); background: var(--laranja-claro); border-radius: var(--raio-g); padding: .9rem 1rem; margin: .4rem 0 1rem; }
+.leitor-titulo { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .5rem; margin: 0; color: var(--laranja-escuro); }
+.leitor-titulo span { flex-basis: 100%; font-size: .88rem; }
+.leitor-doc .botoes-grandes { margin: .7rem 0 .2rem; }
+.leitor-resultado:empty { display: none; }
+.leitor-resultado { margin-top: .6rem; }
+.nota-auto { display: grid !important; grid-template-columns: auto 1fr; justify-items: start; gap: .6rem; align-items: start; background: var(--azul-claro); border-radius: var(--raio); padding: .75rem .9rem; margin: .6rem 0 0; cursor: pointer; text-align: left; }
+.nota-auto[hidden] { display: none !important; }
+.nota-auto input { margin: .2rem 0 0; width: 18px; height: 18px; accent-color: var(--laranja); }
+.nota-auto span { display: block; }
+.nota-auto small { display: block; color: var(--tinta-2); }

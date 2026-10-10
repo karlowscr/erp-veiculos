@@ -239,6 +239,17 @@ export function registrarVeiculos(app: App, b: Banco, op: OpcoesVeiculos): void 
     return { ...r, documento, existente, proprietario };
   });
 
+  /** Anexa ao cadastro a imagem do documento já lida (venda com troca, compra, consignação). */
+  app.post('/api/veiculos/:id/documento', async (req) => {
+    const id = Number(req.params.id);
+    if (!b.one('SELECT 1 FROM veiculos WHERE id = ?', [id])) falhar('Veículo não encontrado.', 404);
+    const documento = texto(req.corpo.documento);
+    if (!NOME_DOC.test(documento) || !(await trazerDaNuvem(join(pastaDocs, documento)))) falhar('Documento não encontrado; leia o documento de novo.');
+    b.atualizar('veiculos', id, { documento_arquivo: documento });
+    auditar(b, req.usuario!.id, 'anexar_documento', 'veiculos', id);
+    return { ok: true };
+  });
+
   /**
    * Entrada rápida no estoque (pelo celular): dados do documento + valores + fotos.
    * - compra: gera a negociação de compra e a conta a pagar ao antigo dono;
