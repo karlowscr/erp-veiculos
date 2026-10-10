@@ -351,7 +351,6 @@ a.vidro:hover .circulo { background: #fff; color: var(--marca-escura); transform
 .mural-quadro { position: relative; display: block; border-radius: 28px; overflow: hidden; background: var(--brasa); isolation: isolate; text-decoration: none; }
 .mural-quadro img { width: 100%; height: auto; display: block; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
 a.mural-quadro:hover img { transform: scale(1.035); }
-.mural-quadro::after { content: ''; position: absolute; inset: 50% 0 0 0; z-index: 0; pointer-events: none; background: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--brasa) 80%, transparent)); }
 .mural-selo { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 20px; color: #fff;
   background: var(--vidro-fundo); border: 1px solid var(--vidro-borda); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
 .mural-logo { width: 42px; height: 42px; border-radius: 50%; flex: none; display: grid; place-items: center; overflow: hidden; background: var(--marca); color: #fff; font-weight: 700; }

@@ -1,17 +1,7 @@
 /**
- * Mural dos clientes: fotos de clientes com o carro que compraram.
- *
- * - A loja publica fotos direto pela área administrativa.
- * - O próprio cliente pode enviar a foto pelo site. Nada aparece antes de a
- *   loja aprovar, e o envio tem travas para evitar abuso:
- *     · só imagem de verdade (conferida pelo conteúdo), até 8 MB;
- *     · dados de localização (EXIF/GPS) da foto são apagados;
- *     · no máximo 3 envios por dia por endereço de internet e por WhatsApp;
- *     · no máximo 40 fotos esperando aprovação ao mesmo tempo;
- *     · a mesma foto não entra duas vezes;
- *     · autorização de uso da imagem obrigatória (LGPD);
- *     · campo-armadilha e tempo mínimo de preenchimento contra robôs;
- *     · textos curtos e sem links.
+ * Mural dos clientes: fotos de clientes com o carro que compraram, publicadas
+ * pela loja na área administrativa. No site, cada foto pode ser compartilhada.
+ * Os dados de localização (EXIF/GPS) das fotos são apagados ao publicar.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -19,10 +9,7 @@ import { join } from 'node:path';
 import { falhar, texto } from '../util/comum.js';
 import { lerDataUrl, apagarArquivo } from '../util/arquivos.js';
 import { enviarNuvem } from '../util/nuvem.js';
-import { soDigitos } from '../util/validacao.js';
 import { auditar } from './auth.js';
-const ENVIOS_POR_DIA = 3;
-const MAX_PENDENTES = 40;
 /** Remove de um JPEG os blocos de metadados (EXIF com GPS, XMP, Photoshop/IPTC, comentários). */
 export function limparJpeg(buf) {
     if (buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8)
@@ -118,43 +105,6 @@ export function registrarMural(app, b, pastaArquivos) {
         auditar(b, req.usuario.id, 'excluir', 'mural_fotos', id, { nome: m.nome });
         return { ok: true };
     });
-    // ---- Envio pelo cliente (público) ----
-    app.post('/api/site/mural', async (req) => {
-        const c = req.corpo;
-        if (texto(c.site))
-            return { ok: true }; // armadilha para robôs
-        const preenchidoEm = Number(c.inicio);
-        if (Number.isFinite(preenchidoEm) && Date.now() - preenchidoEm < 4000)
-            falhar('Envio muito rápido. Confira os dados e tente de novo.');
-        if (c.autorizo !== true)
-            falhar('Para aparecer no mural, autorize o uso da sua foto.');
-        const dados = camposTexto(c);
-        if (dados.nome.length < 2)
-            falhar('Informe seu nome.');
-        const telefone = soDigitos(c.telefone);
-        if (telefone.length < 10 || telefone.length > 13)
-            falhar('Informe seu WhatsApp com DDD. Ele não aparece no site; a loja usa só para confirmar que você é cliente.');
-        const recentes = b.one("SELECT COUNT(*) AS q FROM mural_fotos WHERE origem = 'cliente' AND (ip = ? OR telefone = ?) AND criado_em > datetime('now', '-1 day')", [req.ip, telefone]).q;
-        if (recentes >= ENVIOS_POR_DIA)
-            falhar('Você já enviou fotos hoje. Aguarde a loja aprovar ou tente de novo amanhã.', 429);
-        const pendentes = b.one("SELECT COUNT(*) AS q FROM mural_fotos WHERE status = 'pendente'").q;
-        if (pendentes >= MAX_PENDENTES)
-            falhar('O mural está recebendo muitas fotos agora. Tente de novo mais tarde.', 429);
-        // Do site só aceitamos JPEG (o navegador converte e reduz antes de enviar)
-        const bruto = String(c.imagem ?? '');
-        if (!/^data:image\/jpeg;base64,/.test(bruto))
-            falhar('Envie uma foto (JPG, PNG ou WEBP).');
-        const { buf } = lerDataUrl(bruto, { maxMb: 8 });
-        const hash = createHash('sha256').update(limparJpeg(buf)).digest('hex');
-        if (b.one('SELECT 1 FROM mural_fotos WHERE hash = ?', [hash]))
-            falhar('Esta foto já foi enviada ao mural.');
-        const { arquivo } = await guardarFoto(pasta, bruto);
-        b.inserir('mural_fotos', {
-            ...dados, arquivo, hash, telefone, origem: 'cliente', status: 'pendente', ip: req.ip,
-            autorizado_em: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        });
-        return { ok: true };
-    }, { publica: true });
 }
 /** Fotos aprovadas para o site. */
 export function fotosMural(b, limite, offset = 0) {

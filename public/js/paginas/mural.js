@@ -1,15 +1,11 @@
 import { api } from '../api.js';
-import { html, montar, acoes, aviso, cabecalhoPagina, vazio, segmentos, dataHora, telefone, modal, campos, aoEnviar, confirmar, arquivoParaEnvio, $ } from '../ui.js';
+import { html, montar, acoes, aviso, cabecalhoPagina, vazio, dataHora, telefone, modal, campos, aoEnviar, confirmar, arquivoParaEnvio, $ } from '../ui.js';
 import { icone } from '../icones.js';
-/** Mural dos clientes: aprovar fotos enviadas pelo site e publicar fotos da loja. */
+/** Mural dos clientes: fotos publicadas pela loja (o cliente compartilha pelo site). */
 export async function render(el) {
-    const filtro = new URLSearchParams(location.hash.split('?')[1] ?? '').get('status') ?? 'pendente';
-    const { lista, contagem } = await api.get(`/api/mural?status=${filtro}`);
-    const qtd = (s) => (contagem[s] ? ` (${contagem[s]})` : '');
+    const { lista } = await api.get('/api/mural?status=aprovado');
     montar(el, html `
-  ${cabecalhoPagina('Mural dos clientes', 'Fotos de clientes com o carro novo. As enviadas pelo site só aparecem depois de aprovadas.', html `<a class="botao sec" href="/mural" target="_blank" rel="noopener">${icone('olho', 16)}Ver no site</a><button data-acao="nova">${icone('camera', 16)}Publicar foto</button>`)}
-  <div class="filtros">${segmentos('status', [['pendente', `Para aprovar${qtd('pendente')}`], ['aprovado', `Publicadas${qtd('aprovado')}`], ['recusado', `Recusadas${qtd('recusado')}`]], filtro)}</div>
-  ${filtro === 'pendente' && lista.length ? html `<p class="alerta-caixa">Antes de aprovar, confira se a pessoa é mesmo cliente (o WhatsApp dela aparece no cartão) e se a foto é adequada para o site.</p>` : ''}
+  ${cabecalhoPagina('Mural dos clientes', 'Fotos de clientes com o carro novo. No site, cada foto pode ser compartilhada.', html `<a class="botao sec" href="/mural" target="_blank" rel="noopener">${icone('olho', 16)}Ver no site</a><button data-acao="nova">${icone('camera', 16)}Publicar foto</button>`)}
   ${lista.length ? html `<div class="grade-mural">${lista.map((m) => html `<article class="cartao mural-cartao">
       <a class="mural-miniatura" href="${m.url}" target="_blank" rel="noopener"><img src="${m.url}" alt="Foto de ${m.nome}" loading="lazy">
         ${m.destaque ? html `<span class="selo laranja">Destaque</span>` : ''}</a>
@@ -17,9 +13,8 @@ export async function render(el) {
         <b>${m.nome}</b>
         <small>${[m.veiculo, m.cidade].filter(Boolean).join(', ') || 'Sem carro informado'}</small>
         ${m.mensagem ? html `<q>${m.mensagem}</q>` : ''}
-        <small class="mudo">${m.origem === 'loja' ? 'Publicada pela loja' : 'Enviada pelo cliente'} em ${dataHora(m.criado_em)}${m.instagram ? html ` · Instagram @${m.instagram}` : ''}</small>
+        <small class="mudo">Publicada em ${dataHora(m.criado_em)}${m.instagram ? html ` · Instagram @${m.instagram}` : ''}</small>
         ${m.telefone ? html `<a class="pequeno" href="https://wa.me/${m.telefone.length <= 11 ? '55' + m.telefone : m.telefone}" target="_blank" rel="noopener">${icone('mensagem', 14)} ${telefone(m.telefone)}</a>` : ''}
-        ${m.status === 'aprovado' && m.aprovado_por_nome ? html `<small class="mudo">Aprovada por ${m.aprovado_por_nome}</small>` : ''}
       </div>
       <footer class="cartao-acoes">
         ${m.status !== 'aprovado' ? html `<button class="verde cresce" data-acao="status" data-id="${m.id}" data-status="aprovado">${icone('ok', 16)}Aprovar</button>` : html `<a class="botao sec cresce" href="/mural/${m.id}" target="_blank" rel="noopener">${icone('link', 16)}Abrir</a>`}
@@ -29,8 +24,7 @@ export async function render(el) {
         <button class="sec perigo icone-so" data-acao="excluir" data-id="${m.id}" aria-label="Excluir">${icone('lixeira', 16)}</button>
       </footer>
     </article>`)}</div>`
-        : vazio(filtro === 'pendente' ? 'Nenhuma foto esperando aprovação. Quando um cliente enviar a foto pelo site, ela aparece aqui.' : 'Nada por aqui ainda.')}`);
-    el.querySelectorAll('[data-seg="status"]').forEach((b) => b.addEventListener('click', () => (location.hash = `#/mural?status=${b.dataset.valor}`)));
+        : vazio('Nenhuma foto no mural ainda. Toque em "Publicar foto" para adicionar a primeira.')}`);
     const buscar = (id) => lista.find((m) => String(m.id) === id);
     const atualizar = () => { window.dispatchEvent(new Event('contadores')); render(el); };
     acoes(el, {
@@ -76,7 +70,7 @@ function editar(m, depois) {
 function publicar(depois) {
     const { el, fechar } = modal('Publicar foto no mural', html `<form id="f-mural-novo">
     <label class="soltar">${icone('camera', 22)}<span id="mural-arq">Escolher foto</span><input type="file" name="foto" accept="image/jpeg,image/png,image/webp" required hidden></label>
-    <p class="mudo pequeno">Publique só fotos que o cliente autorizou. A foto entra no mural na hora.</p>
+    <p class="mudo pequeno">Envie a foto já editada do jeito que quer que apareça. Publique só fotos que o cliente autorizou.</p>
     <div class="grade-form">${campos(CAMPOS_TEXTO)}</div>
     <label class="check"><input type="checkbox" name="destaque"> Destacar (aparece primeiro)</label>
     <div class="acoes-form"><button type="submit">Publicar</button></div></form>`);
@@ -90,7 +84,6 @@ function publicar(depois) {
         await api.post('/api/mural', { ...d, foto: undefined, destaque: !!d.destaque, imagem: await arquivoParaEnvio(foto, 1600) });
         fechar();
         aviso('Foto publicada no mural.');
-        location.hash = '#/mural?status=aprovado';
         depois();
     });
 }

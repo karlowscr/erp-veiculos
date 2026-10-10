@@ -23,7 +23,7 @@ const GRUPOS = [
     { nome: 'Vendas', itens: [
             { rota: 'veiculos', texto: 'Veículos', icone: 'carro', pagina: veiculos, perm: ['veiculos.ver', 'veiculos.criar'] },
             { rota: 'contatos', texto: 'Contatos do site', icone: 'mensagem', pagina: contatos, perm: ['site.contatos'], contador: 'contatos_novos' },
-            { rota: 'mural', texto: 'Mural dos clientes', icone: 'camera', pagina: mural, perm: ['site.mural'], contador: 'mural_pendentes' },
+            { rota: 'mural', texto: 'Mural dos clientes', icone: 'camera', pagina: mural, perm: ['site.mural'] },
             { rota: 'negociacoes', texto: 'Negociações', icone: 'setas', pagina: negociacoes, perm: ['negociacoes.ver'] },
             { rota: 'contratos', texto: 'Contratos', icone: 'arquivo', pagina: contratos, perm: ['contratos.ver'] },
             { rota: 'assinaturas', texto: 'Ass. digital', icone: 'caneta', pagina: assinaturas, perm: ['contratos.ver', 'contratos.assinar'], contador: 'contratos_pendentes' },

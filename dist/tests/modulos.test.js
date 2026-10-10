@@ -141,40 +141,26 @@ test('importação do sistema anterior e repetição sem duplicar', async () => 
     assert.equal(det.contratos.length, 1);
     assert.equal(det.cobrancas.length, 1);
 });
-test('mural: envio do cliente com travas, aprovação e foto sem dados de localização', async () => {
-    // JPEG mínimo com um bloco EXIF (onde ficaria o GPS) que precisa sair
-    const jpeg = (marca) => 'data:image/jpeg;base64,' + Buffer.concat([
+test('mural: a loja publica, o site mostra e a foto perde os dados de localização', async () => {
+    const jpeg = 'data:image/jpeg;base64,' + Buffer.concat([
         Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x0e]), Buffer.from('Exif\0\0GPS123'),
-        Buffer.from([0xff, 0xdb, 0x00, 0x04, 0x00, marca, 0xff, 0xda, 0x00, 0x04, 0x00, 0x00, 1, 2, 3, 0xff, 0xd9]),
+        Buffer.from([0xff, 0xdb, 0x00, 0x04, 0x00, 0x01, 0xff, 0xda, 0x00, 0x04, 0x00, 0x00, 1, 2, 3, 0xff, 0xd9]),
     ]).toString('base64');
-    const envio = { nome: 'Maria Cliente', telefone: '85999990000', veiculo: 'Honda HR-V', cidade: 'Ocara', mensagem: 'Amei! veja www.golpe.com', autorizo: true, inicio: Date.now() - 10000 };
-    assert.equal((await req('POST', '/api/site/mural', { ...envio, imagem: jpeg(1), autorizo: false })).status, 400, 'sem autorização não entra');
-    assert.equal((await req('POST', '/api/site/mural', { ...envio, imagem: jpeg(1), inicio: Date.now() })).status, 400, 'rápido demais (robô)');
-    assert.equal((await req('POST', '/api/site/mural', { ...envio, imagem: PNG })).status, 400, 'do site só JPEG');
-    await ok('POST', '/api/site/mural', { ...envio, imagem: jpeg(1) });
-    const repetida = await req('POST', '/api/site/mural', { ...envio, imagem: jpeg(1) });
-    assert.match(repetida.json.erro, /já foi enviada/);
-    // Pendente: não aparece no site
-    assert.match((await req('GET', '/mural')).txt, /esperando você/);
-    const { lista } = await ok('GET', '/api/mural?status=pendente');
-    assert.equal(lista.length, 1);
+    assert.equal((await req('POST', '/api/site/mural', { nome: 'X', imagem: jpeg })).status, 404, 'cliente não envia foto pelo site');
+    assert.doesNotMatch((await req('GET', '/')).txt, /href="\/mural"/, 'sem fotos, o menu não mostra o mural');
+    const { id } = await ok('POST', '/api/mural', { nome: 'Maria Cliente', veiculo: 'Honda HR-V', cidade: 'Ocara', mensagem: 'Amei! veja www.golpe.com', imagem: jpeg });
+    const { lista } = await ok('GET', '/api/mural?status=aprovado');
     assert.equal(lista[0].mensagem, 'Amei! veja', 'links saem do recado');
-    assert.equal((await req('GET', `/mural-fotos/${lista[0].arquivo}`)).status, 404, 'foto pendente não é pública');
     const { readFileSync } = await import('node:fs');
     assert.ok(!readFileSync(join(pasta, 'arquivos', 'mural', lista[0].arquivo)).includes('GPS123'), 'EXIF/GPS apagado');
-    // Aprovada: aparece
-    await ok('PUT', `/api/mural/${lista[0].id}`, { status: 'aprovado' });
     const pg = await req('GET', '/mural');
     assert.match(pg.txt, /Maria Cliente/);
-    assert.match(pg.txt, /Sou cliente CR Veículos/);
+    assert.match((await req('GET', '/')).txt, /href="\/mural"/);
     assert.equal((await req('GET', `/mural-fotos/${lista[0].arquivo}`)).status, 200);
-    assert.equal((await req('GET', `/mural/${lista[0].id}`)).status, 200);
-    assert.ok(!(await req('GET', `/mural/${lista[0].id}`)).txt.includes('85999990000'), 'WhatsApp não aparece no site');
-    // Limite por dia: 3 envios
-    await ok('POST', '/api/site/mural', { ...envio, imagem: jpeg(2) });
-    await ok('POST', '/api/site/mural', { ...envio, imagem: jpeg(3) });
-    assert.equal((await req('POST', '/api/site/mural', { ...envio, imagem: jpeg(4) })).status, 429);
-    assert.equal((await ok('GET', '/api/contadores')).mural_pendentes, 2);
+    const foto = await req('GET', `/mural/${id}`);
+    assert.match(foto.txt, /data-foto-compartilhar/);
+    await ok('DELETE', `/api/mural/${id}`);
+    assert.equal((await req('GET', `/mural/${id}`)).status, 404);
 });
 test('agenda de visitas: horários no site, reserva e horário lotado', async () => {
     const todos = [0, 1, 2, 3, 4, 5, 6].map(() => ({ aberto: true, inicio: '08:00', fim: '10:00' }));

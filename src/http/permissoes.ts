@@ -28,7 +28,7 @@ export const MODULOS: Modulo[] = [
   ] },
   { id: 'site', nome: 'Site (catálogo)', acoes: [
     { id: 'contatos', nome: 'Ver e atender contatos do site', dica: 'Pedidos de visita, troca e financiamento feitos no catálogo' },
-    { id: 'mural', nome: 'Gerenciar o mural dos clientes', dica: 'Publicar fotos e aprovar as que os clientes enviam' },
+    { id: 'mural', nome: 'Gerenciar o mural dos clientes', dica: 'Publicar, editar e excluir fotos do mural' },
   ] },
   { id: 'contratos', nome: 'Contratos', acoes: [
     { id: 'ver', nome: 'Ver e imprimir' },
