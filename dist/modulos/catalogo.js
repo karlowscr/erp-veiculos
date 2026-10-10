@@ -15,7 +15,7 @@ import { fotosMural } from './mural.js';
  * menção à área administrativa.
  *
  * Recursos para o cliente: destaque do pátio, comparação com a FIPE (só
- * quando o preço está abaixo), simulador de financiamento, agendar visita,
+ * quando o preço está abaixo), agendar visita,
  * avaliar a troca, salvar favoritos. Os pedidos chegam na área da loja em
  * "Contatos do site" e abrem a conversa no WhatsApp.
  */
@@ -196,7 +196,7 @@ ${op.jsonLd ? `<script type="application/ld+json">${JSON.stringify(op.jsonLd).re
     ${e.telefone || e.whatsapp ? `<li>${I.tel}<a href="tel:+${esc(whatsapp(e))}">${esc(telFmt(e.whatsapp || e.telefone))}</a></li>` : ''}
     ${e.instagram ? `<li>${I.insta}<a href="https://instagram.com/${esc(e.instagram)}" target="_blank" rel="noopener">@${esc(e.instagram)}</a></li>` : ''}
   </ul>
-  <p class="aviso-legal">Fotos e informações sujeitas a alteração sem aviso. Preços à vista, sujeitos à disponibilidade. Simulações de financiamento são estimativas e dependem de aprovação de crédito.</p>
+  <p class="aviso-legal">Fotos e informações sujeitas a alteração sem aviso. Preços à vista, sujeitos à disponibilidade.</p>
 </div></footer>
 ${op.barraFixa ?? (zap ? `<a class="zap-flutuante" href="${esc(zap)}" target="_blank" rel="noopener" aria-label="Conversar no WhatsApp">${I.whats}</a>` : '')}
 <dialog class="janela" id="janela" aria-labelledby="janela-titulo">
@@ -322,7 +322,6 @@ async function inicio(ctx, req, e) {
     const chip = (rot, ativo, href) => `<a class="chip" href="${esc(href)}"${ativo ? ' aria-current="true"' : ''}>${esc(rot)}</a>`;
     const opcao = (v, rot, atual) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(rot)}</option>`;
     const paginas = Math.ceil(total / POR_PAGINA);
-    const taxa = Number(e.catalogo_taxa_mes ?? 1.99);
     const qtd = Number(todos.q ?? 0);
     const desconto = Number(todos.maior_desconto ?? 0);
     const zapGeral = linkWhats(e, `Olá! Vim pelo site da ${loja}.`);
@@ -382,13 +381,11 @@ async function inicio(ctx, req, e) {
       <h2 class="titulo-duplo claro" id="t-vant">Comprar aqui<span>é simples assim</span></h2>
       <div class="numeros">
         <div>${contador(qtd)}<span>veículo${qtd === 1 ? '' : 's'} no pátio agora</span></div>
-        <div>${contador(60, { prefixo: 'até ', sufixo: 'x' })}<span>no simulador de financiamento</span></div>
         ${desconto >= 1 ? `<div>${contador(Math.floor(desconto * 10) / 10, { casas: 1, sufixo: '%' })}<span>o maior desconto sobre a FIPE no estoque</span></div>` : ''}
       </div>
     </div>
     <div class="bento">
-      <a class="vidro bento-a" href="#estoque">${J.carteira}<b>Simule a parcela</b><span>Em cada veículo você escolhe a entrada e o prazo, e vê a parcela na hora. Juros de referência de ${taxa.toLocaleString('pt-BR')}% ao mês.</span><span class="circulo">${J.seta}</span></a>
-      <a class="vidro" href="#troca">${I.troca}<b>Seu carro na troca</b><span>Conte qual é o seu carro e receba a proposta pelo WhatsApp.</span><span class="circulo">${J.seta}</span></a>
+      <a class="vidro bento-a" href="#troca">${I.troca}<b>Seu carro na troca</b><span>Conte qual é o seu carro, a loja avalia e você recebe a proposta pelo WhatsApp, para vender ou usar como entrada.</span><span class="circulo">${J.seta}</span></a>
       <button type="button" class="vidro" data-abrir="visita">${I.calendario}<b>Agende uma visita</b><span>Escolha o dia e o período. A loja confirma com você.</span><span class="circulo">${J.seta}</span></button>
       <a class="vidro" href="#estoque">${J.grafico}<b>Comparação com a FIPE</b><span>Quando o preço está abaixo da tabela, mostramos quanto.</span><span class="circulo">${J.seta}</span></a>
       <a class="vidro" href="/?salvos=1#estoque">${I.coracao}<b>Salve e compare</b><span>Toque no coração para guardar os carros que você gostou.</span><span class="circulo">${J.seta}</span></a>
@@ -415,7 +412,6 @@ async function inicio(ctx, req, e) {
   </div></section>`;
     // ---- Dúvidas ----
     const duvidas = [
-        ['Como funciona o financiamento?', `Abra o veículo, escolha a entrada e o número de parcelas no simulador e toque em "Quero esta simulação". A loja faz a análise de crédito com o banco e responde pelo WhatsApp. A simulação usa juros de referência de ${taxa.toLocaleString('pt-BR')}% ao mês; o valor final depende da aprovação.`],
         ['Posso dar meu carro como parte do pagamento?', 'Sim. Preencha a avaliação acima ou toque em "Dar meu carro na troca" na página do veículo. A loja responde com uma proposta.'],
         ['Como agendo uma visita?', `Na página do veículo, toque em "Agendar visita" e escolha o dia e o período.${e.horario ? ` Horário da loja: ${e.horario}.` : ''}${enderecoLoja(e) ? ` Endereço: ${enderecoLoja(e)}.` : ''}`],
         ['O que significa "abaixo da FIPE"?', 'A tabela FIPE é a referência de preço médio de veículos no Brasil. Quando o preço anunciado está abaixo dela, mostramos a diferença no anúncio.'],
@@ -433,7 +429,7 @@ async function inicio(ctx, req, e) {
   </div></section>` : '';
     const corpo = `${capaHtml}${estoque}${!filtrando && pagina === 1 ? vantagens + troca + muralHtml + faq + faixaChamada(e, `Encontrou o seu? Fale com a ${loja}`, 'Tire dúvidas, peça mais fotos ou combine uma visita. A equipe responde pelo WhatsApp.') : ''}`;
     return layout(ctx, req, e, {
-        titulo: `${loja}: ${titulo}`, descricao: `${qtd} veículo${qtd === 1 ? '' : 's'} à venda na ${loja}${e.municipio ? ' em ' + e.municipio : ''}. Fotos, preços, simulação de financiamento e avaliação do seu carro pelo WhatsApp.`,
+        titulo: `${loja}: ${titulo}`, descricao: `${qtd} veículo${qtd === 1 ? '' : 's'} à venda na ${loja}${e.municipio ? ' em ' + e.municipio : ''}. Fotos, preços e avaliação do seu carro pelo WhatsApp.`,
         imagem: capa?.foto ? `/fotos-publicas/${capa.foto}` : lista[0]?.foto ? `/fotos-publicas/${lista[0].foto}` : urlLogo(e) || undefined,
         canonico: pagina > 1 || filtrando ? link({}).replace('#estoque', '') : '/', corpo, classe: 'pg-inicio',
         jsonLd: { '@context': 'https://schema.org', '@type': 'AutoDealer', name: loja, telephone: e.whatsapp || e.telefone || undefined, address: enderecoLoja(e) || undefined, openingHours: e.horario || undefined },
@@ -483,27 +479,7 @@ async function detalhe(ctx, req, e, id, res) {
         ['Motor', v.potencia || v.cilindrada || ''], ['Final da placa', /\d/.test(final) ? final : ''], ['Condição', v.condicao === 'novo' ? '0 km' : 'Seminovo'],
     ].filter(([, val]) => val);
     const outros = ctx.b.all(`SELECT ${COLUNAS_CARTAO} FROM veiculos v WHERE ${SITUACAO_PUBLICA} AND v.id <> ? ORDER BY abs(v.preco_venda - ?) LIMIT 3`, [id, v.preco_venda]);
-    const taxa = Number(e.catalogo_taxa_mes ?? 1.99);
-    const entradaPct = Number(e.catalogo_entrada_pct ?? 30);
     const veiculoTxt = `${titulo} ${v.ano_fab}/${v.ano_mod}`;
-    const simulador = v.mostrar_preco && v.preco_venda > 0 ? `
-    <section class="intensa simulador" id="simular" aria-labelledby="t-sim" data-simulador data-preco="${v.preco_venda}" data-taxa="${taxa}">
-      <div class="sim-grade">
-        <div class="sim-controles">
-          <h2 class="titulo-duplo claro" id="t-sim">Simule o financiamento<span>do seu jeito</span></h2>
-          <label class="sim-entrada"><span>Entrada <output data-entrada-valor>${reais(v.preco_venda * entradaPct / 100)}</output></span>
-            <input type="range" min="0" max="90" step="5" value="${entradaPct}" data-entrada aria-label="Percentual de entrada"><small><span data-entrada-pct>${entradaPct}</span>% do valor do veículo</small></label>
-          <fieldset class="sim-prazos"><legend>Em quantas vezes</legend>
-            ${[24, 36, 48, 60].map((n) => `<label><input type="radio" name="prazo" value="${n}"${n === 48 ? ' checked' : ''}><span>${n}x</span></label>`).join('')}
-          </fieldset>
-        </div>
-        <div class="vidro sim-resultado" aria-live="polite">
-          <span>Parcelas estimadas de</span><b data-parcela>—</b><small data-sim-resumo></small>
-          <button type="button" class="btn-claro" data-abrir="financiamento" data-veiculo="${v.id}" data-veiculo-nome="${esc(veiculoTxt)}">Quero esta simulação</button>
-          <p class="sim-nota">Estimativa com juros de ${taxa.toLocaleString('pt-BR')}% ao mês. O valor final depende da análise de crédito do banco.</p>
-        </div>
-      </div>
-    </section>` : '';
     const corpo = `
   <div class="faixa detalhe">
     <a class="voltar" href="/#estoque">${I.voltar}Todos os veículos</a>
@@ -536,7 +512,6 @@ async function detalhe(ctx, req, e, id, res) {
       </aside>
     </div>
   </div>
-  ${simulador}
   <div class="faixa detalhe-baixo">
     <section class="bloco"><h2 class="titulo-duplo">Ficha técnica</h2><dl class="ficha">${ficha.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('')}</dl></section>
     ${v.descricao_catalogo || opcionais.length ? `<section class="bloco">

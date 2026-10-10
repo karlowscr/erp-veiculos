@@ -18,7 +18,7 @@ const VEICULOS = [
             placa: 'DEM0A01', chassi: '9BD0DEM0000000001', renavam: '00948273615', km: 45200, portas: 4, potencia: '109 cv', preco_venda: 64900, preco_minimo: 61500,
             opcionais: 'Ar-condicionado, Direção elétrica, Central multimídia com Android Auto e Apple CarPlay, Câmera de ré, Sensor de estacionamento, Vidros e travas elétricas, Volante multifuncional, Rodas de liga leve' },
         preco_compra: 52000, fipe: { fipe_valor: 69900, fipe_codigo: '001493-1', fipe_modelo: 'Fiat ARGO DRIVE 1.3 8V Flex 2020', fipe_referencia: 'outubro de 2026' },
-        texto: 'Único dono, todas as revisões na concessionária, manual e chave reserva. Pneus novos e IPVA 2026 pago. Aceitamos seu usado na troca e financiamos em até 60x.',
+        texto: 'Único dono, todas as revisões na concessionária, manual e chave reserva. Pneus novos e IPVA 2026 pago. Aceitamos seu usado na troca.',
     },
     {
         fotos: 'hrv', destaque: 0, data_entrada: diasAtras(12),

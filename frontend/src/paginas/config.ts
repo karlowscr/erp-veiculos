@@ -38,8 +38,6 @@ async function catalogo(el: HTMLElement, topo: Html) {
       { nome: 'catalogo_sobre', rotulo: 'Texto de apresentação', tipo: 'area', largura: 4, attrs: 'rows="3" maxlength="2000"' },
       { nome: 'horario', rotulo: 'Horário de atendimento', largura: 2, attrs: 'placeholder="Seg a sex 8h às 18h · Sáb 8h às 12h"' },
       { nome: 'instagram', rotulo: 'Instagram', largura: 2, attrs: 'placeholder="@sualoja"' },
-      { nome: 'catalogo_taxa_mes', rotulo: 'Juros do simulador (% ao mês)', tipo: 'numero', largura: 2, dica: 'Usado só na estimativa de parcelas que o cliente vê. Ex.: 1,99' },
-      { nome: 'catalogo_entrada_pct', rotulo: 'Entrada sugerida (%)', tipo: 'numero', largura: 2, dica: 'Valor inicial da barra de entrada no simulador.' },
     ], e)}</div>
     <p class="mudo pequeno">WhatsApp, endereço e logo vêm da aba "Loja e documentos". Para um veículo aparecer, abra-o em Veículos e marque "Publicar no catálogo".</p>`)}
     ${secao('olho', 'laranja', 'Cores do site', 'Valem para o catálogo e para os destaques deste painel', html`

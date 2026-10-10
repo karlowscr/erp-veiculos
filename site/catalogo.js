@@ -81,30 +81,7 @@
     marcar();
   }
 
-  // ---- Simulador de financiamento (tabela Price) ----
-  var sim = document.querySelector('[data-simulador]');
-  var simAtual = null;
-  if (sim) {
-    var preco = Number(sim.dataset.preco);
-    var taxa = Number(sim.dataset.taxa) / 100;
-    var faixa = sim.querySelector('[data-entrada]');
-    var calcular = function () {
-      var pct = Number(faixa.value);
-      var entrada = Math.round(preco * pct / 100);
-      var n = Number(sim.querySelector('input[name=prazo]:checked').value);
-      var financiado = preco - entrada;
-      var parcela = financiado <= 0 ? 0 : taxa > 0 ? financiado * taxa / (1 - Math.pow(1 + taxa, -n)) : financiado / n;
-      sim.querySelector('[data-entrada-valor]').textContent = moeda(entrada);
-      sim.querySelector('[data-entrada-pct]').textContent = pct;
-      sim.querySelector('[data-parcela]').textContent = financiado <= 0 ? 'À vista' : n + 'x ' + moeda(parcela);
-      sim.querySelector('[data-sim-resumo]').textContent = financiado <= 0 ? '' : 'Entrada de ' + moeda(entrada) + ' e ' + moeda(financiado) + ' financiados';
-      faixa.style.setProperty('--p', (pct / 90 * 100) + '%');
-      simAtual = { entrada: moeda(entrada), prazo: n + 'x', parcela: moeda(parcela), financiado: moeda(financiado) };
-    };
-    sim.addEventListener('input', calcular);
-    sim.addEventListener('change', calcular);
-    calcular();
-  }
+  var simAtual = null; // simulador removido; pedidos antigos de financiamento continuam aceitos
 
   // ---- Pedidos (visita, troca, financiamento) ----
   var janela = document.getElementById('janela');
