@@ -17,7 +17,7 @@ const urlBanco = process.env.POSTGRES_URL || process.env.DATABASE_URL || undefin
 const { criarAplicacao } = await import(join(raiz, 'dist/aplicacao.js'));
 const { criarUsuario } = await import(join(raiz, 'dist/modulos/auth.js'));
 const { semearDemo } = await import(join(raiz, 'dist/scripts/demo.js'));
-const { enviarNuvem, trazerDaNuvem, nuvemAtiva } = await import(join(raiz, 'dist/util/nuvem.js'));
+const { enviarNuvem, trazerDaNuvem, nuvemAtiva, esvaziarNuvem } = await import(join(raiz, 'dist/util/nuvem.js'));
 
 const { app, banco } = criarAplicacao({
   pastaDados,
@@ -26,6 +26,13 @@ const { app, banco } = criarAplicacao({
   pastaSite: join(raiz, 'site'),
   caminhoAdmin: process.env.ADMIN_PATH || undefined,
 });
+
+// Reset completo pedido pela variável RESETAR_DADOS (roda uma vez para cada valor):
+// apaga todas as tabelas e arquivos e volta ao estado de instalação nova.
+if (process.env.RESETAR_DADOS && banco.motor === 'postgres' && banco.resetarTudo(process.env.RESETAR_DADOS)) {
+  const n = await esvaziarNuvem();
+  console.log(`Reset completo (${process.env.RESETAR_DADOS}): banco recriado e ${n} arquivo(s) apagado(s).`);
+}
 
 // Primeira vez: dados da loja, o administrador e os veículos de exemplo do catálogo
 if (!banco.one('SELECT 1 FROM usuarios LIMIT 1')) {

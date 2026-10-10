@@ -78,6 +78,47 @@ export class Banco {
     pg.consultar('BEGIN');
     try {
       pg.consultar('SELECT pg_advisory_xact_lock(726354)');
+      this.aplicarMigracoesPg();
+      pg.consultar('COMMIT');
+    } catch (e) {
+      pg.consultar('ROLLBACK');
+      throw e;
+    }
+  }
+
+  /**
+   * Apaga TODOS os dados (tabelas do sistema) e recria o banco no estado de
+   * instalação nova. Roda uma única vez para cada `marca`: a marca fica
+   * gravada e um novo pedido com a mesma marca não faz nada. Retorna true se apagou.
+   */
+  resetarTudo(marca: string): boolean {
+    const pg = this.pg;
+    if (!pg) throw new Error('resetarTudo só existe para PostgreSQL.');
+    pg.consultar('BEGIN');
+    try {
+      pg.consultar('SELECT pg_advisory_xact_lock(726354)');
+      const temConfig = pg.consultar("SELECT to_regclass('config_sistema') IS NOT NULL AS t").linhas[0].t;
+      const feito = temConfig ? pg.consultar("SELECT valor FROM config_sistema WHERE chave = 'reset_feito'").linhas[0]?.valor : undefined;
+      if (feito === marca) { pg.consultar('COMMIT'); return false; }
+      const minhas = new Set([...ESQUEMA_PG.matchAll(/CREATE TABLE (\w+)/g)].map((m) => m[1]).concat('_migracoes'));
+      const existentes = pg.consultar('SELECT tablename FROM pg_tables WHERE schemaname = current_schema()').linhas
+        .map((r) => r.tablename as string).filter((t) => minhas.has(t));
+      if (existentes.length) pg.consultar(`DROP TABLE ${existentes.map((t) => `"${t}"`).join(', ')} CASCADE`);
+      pg.consultar('CREATE TABLE _migracoes (versao BIGINT PRIMARY KEY, aplicada_em TEXT NOT NULL)');
+      this.aplicarMigracoesPg();
+      pg.consultar("INSERT INTO config_sistema (chave, valor) VALUES ('reset_feito', $1)", [marca]);
+      pg.consultar('COMMIT');
+      return true;
+    } catch (e) {
+      pg.consultar('ROLLBACK');
+      throw e;
+    }
+  }
+
+  /** Corpo da migração; chamar dentro de transação com a trava. */
+  private aplicarMigracoesPg(): void {
+    const pg = this.pg!;
+    {
       const atual = Number(pg.consultar('SELECT COALESCE(MAX(versao), 0) AS v FROM _migracoes').linhas[0].v);
       pg.consultar(FUNCOES_PG);
       if (atual === 0) {
@@ -104,10 +145,6 @@ export class Banco {
           EXECUTE format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA %I FROM anon, authenticated', current_schema());
         END IF;
       END $p$`);
-      pg.consultar('COMMIT');
-    } catch (e) {
-      pg.consultar('ROLLBACK');
-      throw e;
     }
   }
 

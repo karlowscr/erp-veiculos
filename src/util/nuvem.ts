@@ -88,3 +88,36 @@ export async function trazerDaNuvem(local: string): Promise<boolean> {
     return false;
   }
 }
+
+/** Apaga todos os arquivos do bucket (usado só no reset completo). Retorna quantos apagou. */
+export async function esvaziarNuvem(): Promise<number> {
+  if (!cfg) return 0;
+  const listar = async (prefixo: string): Promise<string[]> => {
+    const out: string[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const r = await fetch(`${cfg!.url}/storage/v1/object/list/${cfg!.bucket}`, {
+        method: 'POST',
+        headers: { ...cabecalhos(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefix: prefixo, limit: 1000, offset }),
+      });
+      if (r.status === 404 || r.status === 400) return out; // bucket ainda não existe
+      if (!r.ok) throw new Error(`Falha ao listar arquivos (${r.status}).`);
+      const itens = (await r.json()) as { name: string; id: string | null }[];
+      for (const i of itens) {
+        const caminho = prefixo ? `${prefixo}/${i.name}` : i.name;
+        if (i.id) out.push(caminho); else out.push(...(await listar(caminho)));
+      }
+      if (itens.length < 1000) return out;
+    }
+  };
+  const todos = await listar('');
+  for (let i = 0; i < todos.length; i += 500) {
+    const r = await fetch(`${cfg.url}/storage/v1/object/${cfg.bucket}`, {
+      method: 'DELETE',
+      headers: { ...cabecalhos(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: todos.slice(i, i + 500) }),
+    });
+    if (!r.ok) throw new Error(`Falha ao apagar arquivos (${r.status}).`);
+  }
+  return todos.length;
+}
