@@ -42,10 +42,15 @@ export function enderecoLoja(e: Linha): string {
 }
 
 /** Cabeçalho com a identidade da loja, usado em todos os documentos impressos. */
+/** Cor da loja (configurações) para os documentos impressos. */
+export function estiloCor(e: Linha): string {
+  return /^#[0-9a-fA-F]{6}$/.test(String(e.cor_marca ?? '')) ? `<style>:root{--cor:${e.cor_marca}}</style>` : '';
+}
+
 export function cabecalho(e: Linha, titulo: string, sub = ''): string {
   const logo = e.logo ? `<img class="logo" src="${esc(urlLogo(e))}" alt="">` : `<div class="logo-texto">${esc(siglaLoja(e))}</div>`;
   const contato = [e.cnpj ? 'CNPJ ' + docFmt(e.cnpj) : '', telFmt(e.telefone || e.whatsapp)].filter(Boolean).join(' · ');
-  return `<header class="doc-topo">${logo}<div class="loja"><b>${esc(e.razao_social || nomeLoja(e))}</b><span>${esc(enderecoLoja(e))}</span><span>${esc(contato)}</span></div>
+  return `${estiloCor(e)}<header class="doc-topo">${logo}<div class="loja"><b>${esc(e.razao_social || nomeLoja(e))}</b><span>${esc(enderecoLoja(e))}</span><span>${esc(contato)}</span></div>
   <div class="doc-titulo"><h1>${esc(titulo)}</h1>${sub ? `<span>${esc(sub)}</span>` : ''}</div></header>`;
 }
 
@@ -59,14 +64,14 @@ export function pagina(titulo: string, corpo: string, cssExtra = ''): string {
 body{margin:0;background:#e9ecf1;font:10.5pt/1.5 Inter,Arial,sans-serif;color:#1d2433}
 .folha{background:#fff;max-width:210mm;margin:16px auto;padding:14mm;box-shadow:0 2px 14px rgba(0,0,0,.12)}
 .barra{position:sticky;top:0;background:#141b2b;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:5}
-.barra button{font:600 13px Inter,sans-serif;border:0;border-radius:8px;padding:8px 16px;background:#f97316;color:#fff;cursor:pointer}
+.barra button{font:600 13px Inter,sans-serif;border:0;border-radius:8px;padding:8px 16px;background:var(--cor,#f97316);color:#fff;cursor:pointer}
 .barra button.sec{background:#2a3347}
-.doc-topo{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding-bottom:12px;border-bottom:2.5px solid #f97316;margin-bottom:16px}
+.doc-topo{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding-bottom:12px;border-bottom:2.5px solid var(--cor,#f97316);margin-bottom:16px}
 .logo{max-height:58px;max-width:150px;object-fit:contain}
-.logo-texto{width:52px;height:52px;border-radius:12px;background:#f97316;color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px}
+.logo-texto{width:52px;height:52px;border-radius:12px;background:var(--cor,#f97316);color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px}
 .loja b{display:block;font-size:12pt}.loja span{display:block;font-size:8.5pt;color:#5a6478}
 .doc-titulo{text-align:right}.doc-titulo h1{margin:0;font-size:13pt;letter-spacing:.01em}.doc-titulo span{font-size:9pt;color:#5a6478}
-h2{font-size:10pt;margin:16px 0 6px;padding:4px 8px;background:#f3f5f8;border-left:3px solid #f97316}
+h2{font-size:10pt;margin:16px 0 6px;padding:4px 8px;background:#f3f5f8;border-left:3px solid var(--cor,#f97316)}
 .grade{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #d5dbe5;border-radius:6px;overflow:hidden}
 .grade>div{padding:5px 8px;border-right:1px solid #e3e7ee;border-bottom:1px solid #e3e7ee}
 .grade>div span{display:block;font-size:7.5pt;color:#6b7487}.grade>div b{font-weight:600}

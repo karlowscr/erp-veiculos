@@ -178,6 +178,17 @@ function aplicarCor(cor) {
     r.setProperty('--laranja-escuro', `color-mix(in oklab, ${cor} 82%, #000)`);
     r.setProperty('--laranja-claro', `color-mix(in oklab, ${cor} 9%, #fff)`);
     r.setProperty('--laranja-borda', `color-mix(in oklab, ${cor} 32%, #fff)`);
+    // ícone da aba e cor da barra do navegador no celular
+    const icone = document.querySelector('link[rel=icon]');
+    if (icone && !icone.dataset.logo)
+        icone.href = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='${cor}'/></svg>`)}`;
+    let tema = document.querySelector('meta[name=theme-color]');
+    if (!tema) {
+        tema = document.createElement('meta');
+        tema.name = 'theme-color';
+        document.head.append(tema);
+    }
+    tema.content = cor;
 }
 /** Redesenha a marca depois que a logo ou o nome mudam nas configurações. */
 function atualizarMarca() {
@@ -189,7 +200,8 @@ async function iniciar() {
     }
     catch {
         sessao.usuario = undefined;
-        const { precisaSetup } = await api.get('/api/setup');
+        const { precisaSetup, cor } = await api.get('/api/setup');
+        aplicarCor(cor ?? undefined);
         return telaEntrada(precisaSetup);
     }
     await carregarLoja();

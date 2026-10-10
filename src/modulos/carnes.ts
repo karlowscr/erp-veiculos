@@ -8,7 +8,7 @@ import { pixCopiaECola, normalizarChavePix } from '../util/pix.js';
 import { qrSvg } from '../util/qrcode.js';
 import { auditar } from './auth.js';
 import { situacao, vencimentoParcela } from './cobrancas.js';
-import { pagina, esc, moeda, dataBr, docFmt, nomeLoja, telFmt, siglaLoja } from '../impressao/base.js';
+import { pagina, esc, moeda, dataBr, docFmt, nomeLoja, telFmt, siglaLoja, estiloCor } from '../impressao/base.js';
 
 const FORMAS: Record<string, string> = { pix: 'Pix', boleto: 'Boleto', dinheiro: 'Dinheiro', transferencia: 'Transferência', cartao: 'Cartão' };
 
@@ -77,8 +77,8 @@ function htmlCarne(c: Linha, e: Linha, pago: number): string {
   .canhoto b{font-size:8.5pt;margin-bottom:6px}.canhoto dl{margin:0;display:grid;gap:1px}.canhoto dt{color:#6b7487;font-size:7pt;margin-top:3px}.canhoto dd{margin:0;font-weight:600}
   .canhoto .ass{margin-top:auto;font-size:7pt;color:#6b7487}
   .recibo{padding:8px 12px;display:flex;flex-direction:column;position:relative}
-  .recibo header{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border-bottom:2px solid #f97316;padding-bottom:6px}
-  .recibo header img{max-height:34px;max-width:90px;object-fit:contain}.lt{width:34px;height:34px;border-radius:8px;background:#f97316;color:#fff;display:grid;place-items:center;font-weight:700}
+  .recibo header{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border-bottom:2px solid var(--cor,#f97316);padding-bottom:6px}
+  .recibo header img{max-height:34px;max-width:90px;object-fit:contain}.lt{width:34px;height:34px;border-radius:8px;background:var(--cor,#f97316);color:#fff;display:grid;place-items:center;font-weight:700}
   .recibo header b{display:block;font-size:9.5pt}.recibo header span{font-size:7.5pt;color:#5a6478}
   .num{text-align:right}.num span{display:block;font-size:7pt;color:#6b7487}.num b{font-size:14pt}
   .corpo{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:4px 12px;padding-top:6px;flex:1}
@@ -89,7 +89,7 @@ function htmlCarne(c: Linha, e: Linha, pago: number): string {
   .pago{position:absolute;right:140px;top:44%;transform:rotate(-14deg);border:3px solid #17703f;color:#17703f;font-weight:800;font-size:20pt;padding:0 10px;border-radius:6px;opacity:.75}
   @media print{.folha{padding:0}}`;
   const corpo = `<div class="folha">${Array.from({ length: c.total_parcelas }, (_, i) => parcela(i + 1)).join('')}</div>`;
-  return pagina(`Carnê ${c.cliente_nome}`, corpo, css);
+  return pagina(`Carnê ${c.cliente_nome}`, estiloCor(e) + corpo, css);
 }
 
 export function registrarCarnes(app: App, b: Banco, pastaArquivos: string): void {

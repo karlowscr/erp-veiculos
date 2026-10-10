@@ -35,7 +35,7 @@ export function htmlRecibo(t, e, pessoa, extra) {
   </section>`;
     return pagina(`Recibo ${extra.numero} — ${nomePessoa}`, extra.unicaVia ? `<div class="folha">${via('Comprovante do cliente')}</div>` : `<div class="folha">${via('Via do cliente')}<div class="corte">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>${via('Via da loja')}</div>`, `
 .via{page-break-inside:avoid}
-.valor-caixa{float:right;border:2px solid #f97316;border-radius:8px;padding:4px 14px;text-align:right;margin:0 0 8px 14px}
+.valor-caixa{float:right;border:2px solid var(--cor,#f97316);border-radius:8px;padding:4px 14px;text-align:right;margin:0 0 8px 14px}
 .valor-caixa span{display:block;font-size:7.5pt;color:#6b7487}.valor-caixa b{font-size:14pt}
 .frase{font-size:11pt;line-height:1.7;text-align:justify;margin:6px 0 12px}
 .local{text-align:right;margin:12px 0 0}

@@ -91,7 +91,11 @@ export function registrarAuth(app, b) {
         const admin = u.perfil === 'admin';
         return { id: u.id, nome: u.nome, email: u.email, perfil: u.perfil, admin, permissoes: admin ? new Set() : lerPermissoes(u.permissoes), comissao_pct: u.comissao_pct };
     };
-    app.get('/api/setup', () => ({ precisaSetup: !b.one('SELECT 1 FROM usuarios LIMIT 1') }), { publica: true });
+    app.get('/api/setup', () => ({
+        precisaSetup: !b.one('SELECT 1 FROM usuarios LIMIT 1'),
+        // cor da loja para a tela de login já sair com a identidade certa (é pública no site também)
+        cor: b.one('SELECT cor_marca FROM empresa WHERE id = 1')?.cor_marca || null,
+    }), { publica: true });
     // Primeiro acesso: cria o administrador quando ainda não há usuários
     app.post('/api/setup', (req) => {
         if (b.one('SELECT 1 FROM usuarios LIMIT 1'))

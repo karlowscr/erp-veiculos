@@ -40,7 +40,7 @@ h2 { font-size: 1.02rem; font-weight: 600; margin-bottom: .8rem; }
 h3 { font-size: .95rem; font-weight: 600; margin: 1.3rem 0 .6rem; color: var(--tinta); }
 small { color: var(--tinta-2); }
 p { margin: 0 0 .8rem; }
-:focus-visible { outline: 3px solid #fdba74; outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--laranja-borda); outline-offset: 2px; }
 .ic { flex: none; }
 .mudo { color: var(--tinta-2); }
 .pequeno { font-size: .82rem; }
@@ -71,13 +71,13 @@ p { margin: 0 0 .8rem; }
 .marca { display: flex; align-items: center; gap: .65rem; padding: 1.1rem 1.15rem; color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.06); }
 .marca b { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .marca img { width: 38px; height: 38px; object-fit: contain; flex: none; }
-.marca-sigla { width: 36px; height: 36px; border-radius: 10px; background: var(--laranja); display: grid; place-items: center; font-weight: 800; font-size: .82rem; letter-spacing: .02em; flex: none; box-shadow: 0 4px 12px rgba(249,115,22,.35); }
+.marca-sigla { width: 36px; height: 36px; border-radius: 10px; background: var(--laranja); display: grid; place-items: center; font-weight: 800; font-size: .82rem; letter-spacing: .02em; flex: none; box-shadow: 0 4px 12px color-mix(in srgb, var(--laranja) 35%, transparent); }
 #menu { flex: 1; overflow-y: auto; padding: .7rem .7rem 1rem; }
 .grupo + .grupo { margin-top: .55rem; }
 .grupo-nome { display: block; font-size: .72rem; color: #5f6a83; padding: .55rem .75rem .3rem; font-weight: 500; }
 #menu a { display: flex; align-items: center; gap: .7rem; padding: .58rem .75rem; margin: 1px 0; border-radius: var(--raio); color: var(--lateral-texto); text-decoration: none; font-weight: 500; font-size: .93rem; }
 #menu a:hover { background: var(--lateral-2); color: #fff; }
-#menu a[aria-current] { background: var(--laranja); color: #fff; font-weight: 600; box-shadow: 0 6px 16px rgba(249,115,22,.32); }
+#menu a[aria-current] { background: var(--laranja); color: #fff; font-weight: 600; box-shadow: 0 6px 16px color-mix(in srgb, var(--laranja) 32%, transparent); }
 #menu a span { flex: 1; }
 .contador { font-style: normal; font-size: .72rem; font-weight: 700; background: var(--laranja); color: #fff; border-radius: 999px; padding: .05rem .45rem; min-width: 1.4rem; text-align: center; }
 #menu a[aria-current] .contador { background: #fff; color: var(--laranja-escuro); }
@@ -85,7 +85,7 @@ p { margin: 0 0 .8rem; }
 .usuario div { flex: 1; min-width: 0; }
 .usuario b { display: block; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .usuario small { color: #7d88a1; font-size: .75rem; }
-.avatar { width: 34px; height: 34px; border-radius: 50%; background: #3a2416; color: #fdba74; display: grid; place-items: center; font-weight: 700; font-size: .8rem; flex: none; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: color-mix(in oklab, var(--laranja) 28%, #141414); color: var(--laranja-borda); display: grid; place-items: center; font-weight: 700; font-size: .8rem; flex: none; }
 .barra-movel { display: none; }
 .cortina { display: none; }
 main { margin-left: 228px; padding: 2rem 2.25rem 4rem; max-width: calc(1240px + 228px + 4.5rem); outline: none; }
@@ -102,7 +102,7 @@ main { margin-left: 228px; padding: 2rem 2.25rem 4rem; max-width: calc(1240px + 
 button, .botao {
   display: inline-flex; align-items: center; justify-content: center; gap: .45rem; font: 600 .9rem var(--fonte); line-height: 1.2;
   border-radius: var(--raio); padding: .6rem 1rem; cursor: pointer; text-decoration: none; white-space: nowrap;
-  border: 1px solid var(--laranja); background: var(--laranja); color: #fff; box-shadow: 0 1px 2px rgba(249,115,22,.25);
+  border: 1px solid var(--laranja); background: var(--laranja); color: #fff; box-shadow: 0 1px 2px color-mix(in srgb, var(--laranja) 25%, transparent);
   transition: background .12s, border-color .12s, box-shadow .12s;
 }
 button:hover, .botao:hover { background: var(--laranja-escuro); border-color: var(--laranja-escuro); }
@@ -254,7 +254,7 @@ button.stat { border-color: var(--linha); }
 input, select, textarea { font: inherit; font-size: .93rem; width: 100%; padding: .6rem .75rem; border: 1px solid var(--linha-forte); border-radius: var(--raio); background: #fff; color: var(--tinta); transition: border-color .12s, box-shadow .12s; }
 textarea { resize: vertical; line-height: 1.5; }
 input::placeholder, textarea::placeholder { color: #a0a9b8; }
-input:focus, select:focus, textarea:focus { border-color: var(--laranja); outline: none; box-shadow: 0 0 0 3px rgba(249,115,22,.15); }
+input:focus, select:focus, textarea:focus { border-color: var(--laranja); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--laranja) 15%, transparent); }
 input:user-invalid, select:user-invalid, textarea:user-invalid { border-color: var(--vermelho); }
 input:disabled, select:disabled, textarea:disabled { background: #f6f7f9; color: var(--tinta-2); }
 .campo small { display: block; font-size: .78rem; margin-top: .3rem; color: var(--tinta-3); }
@@ -407,7 +407,7 @@ details.dados-novo summary { cursor: pointer; font-weight: 600; color: var(--lar
 .fotos figure { margin: 0; width: 180px; }
 .fotos img { width: 180px; height: 120px; object-fit: cover; border-radius: var(--raio); border: 1px solid var(--linha); display: block; margin-bottom: .25rem; }
 .enviar-foto { width: 180px; height: 120px; border: 1.5px dashed var(--laranja-borda); background: #fffaf6; border-radius: var(--raio); display: flex; align-items: center; justify-content: center; color: var(--laranja-escuro); font-weight: 600; cursor: pointer; }
-.enviar-foto:focus-within { outline: 3px solid #fdba74; }
+.enviar-foto:focus-within { outline: 3px solid var(--laranja-borda); }
 
 /* ---------- Modal ---------- */
 dialog { border: 0; border-radius: 16px; padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); box-shadow: 0 24px 60px rgba(16, 24, 40, .25); color: var(--tinta); }
@@ -554,7 +554,7 @@ button.link.perigo:not(.icone-btn):not(.sec) { color: var(--vermelho); backgroun
 .segmentos.largo input { position: absolute; opacity: 0; pointer-events: none; }
 .segmentos.largo span { display: block; text-align: center; padding: .7rem; border: 1.5px solid var(--linha-forte); border-radius: var(--raio); font-weight: 600; background: #fff; }
 .segmentos.largo input:checked + span { border-color: var(--laranja); background: var(--laranja-claro); color: var(--laranja-escuro); }
-.segmentos.largo input:focus-visible + span { outline: 3px solid #fdba74; }
+.segmentos.largo input:focus-visible + span { outline: 3px solid var(--laranja-borda); }
 .fotos figure { position: relative; }
 .fotos .capa { position: absolute; top: 6px; left: 6px; background: var(--laranja); color: #fff; font-size: .7rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; }
 .foto-acoes { display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem; }
@@ -586,7 +586,7 @@ button.link.perigo:not(.icone-btn):not(.sec) { color: var(--vermelho); backgroun
 .previa-cores { margin-top: 1.2rem; border-radius: 18px; overflow: hidden; border: 1px solid var(--linha); background: var(--p-fundo, #fff); font-family: 'Bricolage Grotesque', var(--fonte); }
 .previa-faixa { position: relative; padding: 1.4rem 1.4rem 1.6rem; color: #fff; background: radial-gradient(60% 90% at 70% 100%, color-mix(in oklab, var(--p-marca) 85%, #ffc596), transparent 70%), linear-gradient(170deg, color-mix(in oklab, var(--p-faixa) 70%, var(--p-marca)), var(--p-faixa)); }
 .previa-faixa b { display: block; font-weight: 300; font-size: 1.6rem; letter-spacing: -.03em; line-height: 1.05; }
-.previa-faixa span { display: block; font-weight: 300; font-size: 1.6rem; letter-spacing: -.03em; color: color-mix(in oklab, var(--p-marca) 45%, #ffe9d6); }
+.previa-faixa span { display: block; font-weight: 300; font-size: 1.6rem; letter-spacing: -.03em; color: color-mix(in oklab, var(--p-marca) 45%, #fff); }
 .previa-vidro { position: absolute; right: 1.2rem; top: 1.2rem; font-style: normal; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); border-radius: 14px; padding: .5rem .8rem; font-size: 1.1rem; }
 .previa-claro { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; padding: 1rem 1.4rem; color: #21160f; }
 .previa-claro b { font-weight: 300; font-size: 1.3rem; letter-spacing: -.02em; margin-right: auto; }
