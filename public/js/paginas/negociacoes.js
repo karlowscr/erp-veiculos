@@ -113,6 +113,20 @@ function lerPagamentos(raiz) {
         };
     });
 }
+/** Quando o navegador barra o envio, diz qual campo falta (em vez de não acontecer nada). */
+function avisarInvalido(f) {
+    let ultimo = 0;
+    f.addEventListener('invalid', (e) => {
+        if (Date.now() - ultimo < 500)
+            return;
+        ultimo = Date.now();
+        const c = e.target;
+        const rot = (c.id && f.querySelector(`label[for="${c.id}"]`)?.textContent?.replace('*', '').trim()) || c.getAttribute('aria-label') || c.placeholder || c.name;
+        aviso(`Confira o campo "${rot}": ${c.validationMessage}`, 'erro');
+        if (c.closest('[hidden]') === null)
+            c.focus();
+    }, true);
+}
 /** Quadro que explica a conta: preço, abatimentos, quanto falta ou passou. */
 function resumoPagamento(alvo, partes, total, pago, quem) {
     const dif = Math.round((total - pago) * 100) / 100;
@@ -214,7 +228,15 @@ async function novaVenda(el) {
     aoVeiculo();
     pags.adicionar('pix');
     f.addEventListener('input', conferir);
-    $('#tem-troca', el).addEventListener('change', (e) => { $('#troca', el).hidden = !e.target.checked; conferir(); });
+    // Campos da troca escondidos ficam desligados, senão o navegador trava o envio sem avisar
+    const trocaLigada = (on) => {
+        $('#troca', el).hidden = !on;
+        for (const i of $$('#troca input, #troca select, #troca textarea', el))
+            i.disabled = !on;
+    };
+    trocaLigada($('#tem-troca', el).checked);
+    $('#tem-troca', el).addEventListener('change', (e) => { trocaLigada(e.target.checked); conferir(); });
+    avisarInvalido(f);
     f.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const btn = f.querySelector('button[type=submit]');
@@ -290,6 +312,7 @@ async function novaEntrada(el, tipo) {
         ligarPagamentos(el, false, conferir, restanteCompra);
         f.addEventListener('input', conferir);
     }
+    avisarInvalido(f);
     f.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const btn = f.querySelector('button[type=submit]');

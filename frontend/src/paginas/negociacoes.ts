@@ -105,6 +105,19 @@ function lerPagamentos(raiz: HTMLElement) {
   });
 }
 
+/** Quando o navegador barra o envio, diz qual campo falta (em vez de não acontecer nada). */
+function avisarInvalido(f: HTMLFormElement) {
+  let ultimo = 0;
+  f.addEventListener('invalid', (e) => {
+    if (Date.now() - ultimo < 500) return;
+    ultimo = Date.now();
+    const c = e.target as HTMLInputElement;
+    const rot = (c.id && f.querySelector(`label[for="${c.id}"]`)?.textContent?.replace('*', '').trim()) || c.getAttribute('aria-label') || c.placeholder || c.name;
+    aviso(`Confira o campo "${rot}": ${c.validationMessage}`, 'erro');
+    if (c.closest('[hidden]') === null) c.focus();
+  }, true);
+}
+
 /** Quadro que explica a conta: preço, abatimentos, quanto falta ou passou. */
 function resumoPagamento(alvo: HTMLElement, partes: [string, number][], total: number, pago: number, quem: string) {
   const dif = Math.round((total - pago) * 100) / 100;
@@ -205,7 +218,14 @@ async function novaVenda(el: HTMLElement) {
   aoVeiculo();
   pags.adicionar('pix');
   f.addEventListener('input', conferir);
-  $('#tem-troca', el).addEventListener('change', (e) => { $('#troca', el).hidden = !(e.target as HTMLInputElement).checked; conferir(); });
+  // Campos da troca escondidos ficam desligados, senão o navegador trava o envio sem avisar
+  const trocaLigada = (on: boolean) => {
+    $('#troca', el).hidden = !on;
+    for (const i of $$<HTMLInputElement>('#troca input, #troca select, #troca textarea', el)) i.disabled = !on;
+  };
+  trocaLigada($<HTMLInputElement>('#tem-troca', el).checked);
+  $('#tem-troca', el).addEventListener('change', (e) => { trocaLigada((e.target as HTMLInputElement).checked); conferir(); });
+  avisarInvalido(f);
 
   f.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -275,6 +295,7 @@ async function novaEntrada(el: HTMLElement, tipo: 'compra' | 'consignacao') {
     ligarPagamentos(el, false, conferir, restanteCompra);
     f.addEventListener('input', conferir);
   }
+  avisarInvalido(f);
   f.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const btn = f.querySelector<HTMLButtonElement>('button[type=submit]')!;
