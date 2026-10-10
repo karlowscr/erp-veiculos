@@ -160,7 +160,7 @@ ${op.jsonLd ? `<script type="application/ld+json">${JSON.stringify(op.jsonLd).re
   </ul>
   <p class="aviso-legal">Fotos e informações sujeitas a alteração sem aviso. Preços à vista, sujeitos à disponibilidade.</p>
 </div></footer>
-${op.barraFixa ?? (zap ? `<a class="zap-flutuante" href="${esc(zap)}" target="_blank" rel="noopener" aria-label="Conversar no WhatsApp">${I.whats}</a>` : '')}
+${op.barraFixa ?? ''}
 <dialog class="janela" id="janela" aria-labelledby="janela-titulo">
   <form method="dialog" class="janela-fechar"><button aria-label="Fechar">×</button></form>
   <h2 id="janela-titulo"></h2><p class="janela-sub"></p>
@@ -206,7 +206,7 @@ function cartao(v) {
         <p class="versao">${esc(cap(v.versao || ''))}</p>
         <ul class="dados"><li>${esc(km(v.km))}</li><li>${esc(NOMES_CAMBIO[v.cambio] ?? cap(v.cambio))}</li><li>${esc(NOMES_COMB[v.combustivel] ?? cap(v.combustivel))}</li></ul>
         <div class="preco-linha">
-          <div><p class="preco ${v.mostrar_preco ? '' : 'consulte'}">${v.mostrar_preco ? reais(v.preco_venda) : 'Consulte o preço'}</p>
+          <div><p class="preco ${v.mostrar_preco ? '' : 'consulte'}">${v.mostrar_preco ? reais(v.preco_venda) : 'Consulte o preço'}</p></div>
           <span class="circulo" aria-hidden="true">${J.seta}</span>
         </div>
       </div>

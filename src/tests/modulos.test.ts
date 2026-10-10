@@ -189,3 +189,18 @@ test('agenda de visitas: horários no site, reserva e horário lotado', async ()
   ag = await lerAgenda();
   assert.equal(ag.find((d: any) => d.data === amanha).horarios[0].livre, false);
 });
+
+test('páginas do catálogo com HTML bem fechado (sem blocos sobrepostos)', async () => {
+  const paginas = ['/', '/mural', '/?q=nada'];
+  const v = banco.one('SELECT id FROM veiculos WHERE publicado = 1 LIMIT 1');
+  if (v) paginas.push(`/veiculo/${v.id}`);
+  for (const u of paginas) {
+    const r = await fetch(base + u);
+    const txt = (await r.text()).replace(/<script[\s\S]*?<\/script>/g, '');
+    for (const t of ['div', 'section', 'a', 'article', 'figure', 'form', 'label', 'dialog', 'ul', 'p', 'span', 'button', 'fieldset']) {
+      const abre = (txt.match(new RegExp(`<${t}[\\s>]`, 'g')) ?? []).length;
+      const fecha = (txt.match(new RegExp(`</${t}>`, 'g')) ?? []).length;
+      assert.equal(abre, fecha, `${u}: <${t}> abertas ${abre}, fechadas ${fecha}`);
+    }
+  }
+});
