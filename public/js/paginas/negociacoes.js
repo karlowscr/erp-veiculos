@@ -1,6 +1,7 @@
 import { api, pode, sessao } from '../api.js';
-import { html, montar, $, $$, acoes, campos, aoEnviar, lerForm, modal, aviso, moeda, data, doc, placa, selo, rotulo, hoje, vazio, } from '../ui.js';
+import { html, montar, $, $$, acoes, campos, aoEnviar, lerForm, modal, aviso, moeda, data, doc, placa, selo, rotulo, hoje, vazio, arquivoParaEnvio, } from '../ui.js';
 import { seletorPessoa } from './pessoas.js';
+import { icone } from '../icones.js';
 import { formVeiculoHtml, extrairDadosVeiculo, leitorDocumentoHtml, ligarLeitorDocumento, emitirNotaAgora } from './veiculos.js';
 const FORMAS = [
     ['pix', 'PIX'], ['dinheiro', 'Dinheiro'], ['transferencia', 'Transferência'], ['cartao_debito', 'Cartão de débito'],
@@ -113,6 +114,68 @@ function lerPagamentos(raiz) {
         };
     });
 }
+/** Fotos do veículo que está entrando (compra, consignação ou troca), já para o catálogo. */
+function fotosEntradaHtml(id) {
+    return html `<div class="fotos-entrada" id="${id}" data-ignorar>
+    <p class="leitor-titulo">${icone('camera', 18)}<b>Fotos do veículo</b><span class="mudo">A primeira é a capa do anúncio. Pode tirar pelo celular.</span></p>
+    <div class="fotos-previa"></div>
+    <label class="botao sec">${icone('camera', 18)}<span>Adicionar fotos</span><input type="file" accept="image/*" multiple hidden></label>
+    ${pode('veiculos.publicar') ? html `<label class="nota-auto"><input type="checkbox" data-publicar checked><span><b>Publicar no catálogo ao concluir</b><small>Precisa de pelo menos uma foto. O preço mostrado é o "Preço de venda anunciado".</small></span></label>` : ''}
+  </div>`;
+}
+function ligarFotosEntrada(raiz) {
+    const arquivos = [];
+    const previa = $('.fotos-previa', raiz);
+    const desenhar = () => {
+        previa.innerHTML = '';
+        arquivos.forEach((a, i) => {
+            const fig = document.createElement('figure');
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(a);
+            img.alt = `Foto ${i + 1}`;
+            fig.append(img);
+            if (i === 0)
+                fig.insertAdjacentHTML('beforeend', '<span class="capa">Capa</span>');
+            fig.insertAdjacentHTML('beforeend', `<button type="button" class="link perigo" data-i="${i}">Remover</button>`);
+            previa.append(fig);
+        });
+    };
+    const input = raiz.querySelector('input[type=file]');
+    input.addEventListener('change', () => { arquivos.push(...Array.from(input.files ?? []).slice(0, 40 - arquivos.length)); input.value = ''; desenhar(); });
+    previa.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-i]');
+        if (b) {
+            arquivos.splice(Number(b.dataset.i), 1);
+            desenhar();
+        }
+    });
+    /** Envia as fotos para o veículo e publica no catálogo se marcado. Devolve o aviso. */
+    return async (veiculoId, btn) => {
+        if (!arquivos.length || !veiculoId)
+            return '';
+        let ok = 0;
+        for (const [i, a] of arquivos.entries()) {
+            if (btn)
+                btn.textContent = `Enviando fotos ${i + 1}/${arquivos.length}…`;
+            try {
+                await api.post(`/api/veiculos/${veiculoId}/fotos`, { imagem: await arquivoParaEnvio(a, 1600) });
+                ok++;
+            }
+            catch { /* segue com as outras */ }
+        }
+        let msg = ok === arquivos.length ? `${ok} foto(s) salvas.` : `${ok} de ${arquivos.length} fotos salvas (confira na ficha do veículo).`;
+        if (ok && raiz.querySelector('[data-publicar]')?.checked) {
+            try {
+                await api.post(`/api/veiculos/${veiculoId}/catalogo`, { publicado: true });
+                msg += ' Já está no catálogo.';
+            }
+            catch (e) {
+                msg += ` Não publicado: ${e.message}`;
+            }
+        }
+        return msg;
+    };
+}
 /** Quando o navegador barra o envio, diz qual campo falta (em vez de não acontecer nada). */
 function avisarInvalido(f) {
     let ultimo = 0;
@@ -176,7 +239,7 @@ async function novaVenda(el) {
       <div id="troca" hidden data-ignorar><h3>Veículo da troca</h3>
         ${leitorDocumentoHtml('Fotografe o documento do carro da troca')}
         <div class="grade-form">${campos([{ nome: 'valor_troca', rotulo: 'Valor de avaliação', tipo: 'moeda', largura: 1 }])}</div>
-        <div data-troca>${formVeiculoHtml()}</div></div>
+        <div data-troca>${formVeiculoHtml()}</div>${fotosEntradaHtml('fotos-troca')}</div>
     </section>
     <section class="bloco"><h2>Pagamento</h2>
       <div class="pagamentos" data-ignorar><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div>
@@ -190,6 +253,7 @@ async function novaVenda(el) {
     const f = $('#f-venda', el);
     seletorPessoa($('#sel-cliente', el), 'pessoa_id', 'Cliente', { obrigatorio: true });
     let docTroca = '';
+    const enviarFotosTroca = ligarFotosEntrada($('#fotos-troca', el));
     ligarLeitorDocumento($('#troca [data-leitor]', el), $('[data-troca]', el), (l) => { docTroca = l.documento; });
     const selVeic = $('#f_veic', el);
     const valores = () => {
@@ -254,6 +318,11 @@ async function novaVenda(el) {
             if (r.troca_veiculo_id && docTroca)
                 await api.post(`/api/veiculos/${r.troca_veiculo_id}/documento`, { documento: docTroca }).catch(() => undefined);
             const msgs = ['Venda registrada.'];
+            if (r.troca_veiculo_id) {
+                const fm = await enviarFotosTroca(r.troca_veiculo_id, btn);
+                if (fm)
+                    msgs.push('Carro da troca: ' + fm);
+            }
             if (document.querySelector('#emitir-notas')?.checked) {
                 btn.textContent = 'Emitindo notas…';
                 if (r.troca_negociacao_id)
@@ -284,7 +353,7 @@ async function novaEntrada(el, tipo) {
         { nome: 'data', rotulo: 'Data', tipo: 'data', largura: 1 },
     ], { data: hoje() })}</div>
     </section>
-    <section class="bloco"><h2>Veículo</h2>${leitorDocumentoHtml()}<div data-veic>${formVeiculoHtml()}</div></section>
+    <section class="bloco"><h2>Veículo</h2>${leitorDocumentoHtml()}<div data-veic>${formVeiculoHtml()}</div>${fotosEntradaHtml('fotos-ent')}</section>
     ${compra ? html `<section class="bloco"><h2>Pagamento ao vendedor</h2><p class="mudo">Sem formas de pagamento, o sistema gera uma conta a pagar com vencimento na data da compra.</p>
       <div class="pagamentos" data-ignorar><div class="pagamento-cab" aria-hidden="true"><span>Forma</span><span>Valor</span><span>Parcelas</span><span>1º vencimento</span><span></span></div></div><button type="button" class="sec" data-add-pag>Adicionar forma de pagamento</button><p class="conferencia"></p></section>` : ''}
     <section class="bloco">${campos([{ nome: 'obs', rotulo: 'Observações', tipo: 'area', largura: 4 }])}
@@ -295,6 +364,7 @@ async function novaEntrada(el, tipo) {
     const f = $('#f-ent', el);
     let docVeic = '';
     ligarLeitorDocumento($('[data-leitor]', el), $('[data-veic]', el), (l) => { docVeic = l.documento; });
+    const enviarFotos = ligarFotosEntrada($('#fotos-ent', el));
     if (compra) {
         const restanteCompra = () => {
             const valor = Number($('[name=valor]', el).value || 0);
@@ -321,17 +391,19 @@ async function novaEntrada(el, tipo) {
             const v = {};
             for (const i of $$('[data-veic] [name]', el))
                 v[i.name] = i.value;
-            const g = (n) => f.elements.namedItem(n)?.value;
+            // pega o campo do formulário (fora das linhas de pagamento, que também têm "valor")
+            const g = (n) => $$(`[name=${n}]`, f).find((i) => !i.closest('.pagamentos, [data-veic]'))?.value;
             const corpo = {
                 pessoa_id: g('pessoa_id'), data: g('data'), obs: g('obs'), veiculo: extrairDadosVeiculo(v),
                 ...(compra ? { valor: g('valor'), pagamentos: lerPagamentos(el) } : { valor_repasse: g('valor_repasse') }),
             };
             const r = await api.post(`/api/negociacoes/${tipo}`, corpo);
-            if (docVeic) {
-                const n = await api.get(`/api/negociacoes/${r.id}`);
-                await api.post(`/api/veiculos/${n.veiculo.id}/documento`, { documento: docVeic }).catch(() => undefined);
-            }
+            if (docVeic && r.veiculo_id)
+                await api.post(`/api/veiculos/${r.veiculo_id}/documento`, { documento: docVeic }).catch(() => undefined);
             const msgs = [compra ? 'Compra registrada. Veículo no estoque.' : 'Consignação registrada. Veículo no estoque.'];
+            const fotosMsg = await enviarFotos(r.veiculo_id, btn);
+            if (fotosMsg)
+                msgs.push(fotosMsg);
             if (document.querySelector('#emitir-notas')?.checked) {
                 btn.textContent = 'Emitindo nota…';
                 msgs.push(await emitirNotaAgora(r.id, 'de entrada'));

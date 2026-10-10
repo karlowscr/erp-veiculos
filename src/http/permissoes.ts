@@ -138,7 +138,7 @@ export const ROTAS: Record<string, Regra> = {
   'POST /api/veiculos/:id/reserva': ['veiculos.editar', 'negociacoes.vender'],
   'POST /api/veiculos/:id/custos': 'veiculos.custos',
   'DELETE /api/veiculos/:id/custos/:custoId': 'veiculos.custos',
-  'POST /api/veiculos/:id/fotos': 'veiculos.editar',
+  'POST /api/veiculos/:id/fotos': ['veiculos.editar', 'negociacoes.vender', 'negociacoes.comprar', 'negociacoes.consignar'],
   'PUT /api/veiculos/:id/fotos/ordem': 'veiculos.editar',
   'DELETE /api/veiculos/:id/fotos/:fotoId': 'veiculos.excluir',
   'POST /api/veiculos/:id/catalogo': 'veiculos.publicar',

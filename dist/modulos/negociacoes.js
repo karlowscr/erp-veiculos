@@ -298,8 +298,9 @@ export function registrarNegociacoes(app, b) {
             custo_veiculo: custo, resultado,
         };
     });
-    app.post('/api/negociacoes/compra', (req) => ({ id: comprar(b, req.usuario, req.corpo) }));
-    app.post('/api/negociacoes/consignacao', (req) => ({ id: consignar(b, req.usuario, req.corpo) }));
+    const comVeiculo = (id) => ({ id, veiculo_id: b.one('SELECT veiculo_id FROM negociacoes WHERE id = ?', [id])?.veiculo_id ?? null });
+    app.post('/api/negociacoes/compra', (req) => comVeiculo(comprar(b, req.usuario, req.corpo)));
+    app.post('/api/negociacoes/consignacao', (req) => comVeiculo(consignar(b, req.usuario, req.corpo)));
     app.post('/api/negociacoes/venda', (req) => {
         const id = vender(b, req.usuario, req.corpo);
         // A troca vira uma compra própria (com a NF-e de entrada dela)

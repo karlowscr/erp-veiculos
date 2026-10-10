@@ -633,3 +633,10 @@ button.link.perigo:not(.icone-btn):not(.sec) { color: var(--vermelho); backgroun
 .nota-auto input { margin: .2rem 0 0; width: 18px; height: 18px; accent-color: var(--laranja); }
 .nota-auto span { display: block; }
 .nota-auto small { display: block; color: var(--tinta-2); }
+.fotos-entrada { display: grid; gap: .7rem; margin-top: 1.1rem; padding: 1rem; border: 1px dashed var(--linha); border-radius: var(--raio); background: var(--fundo); }
+.fotos-entrada > .botao { justify-self: start; }
+.fotos-previa { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .6rem; }
+.fotos-previa:empty { display: none; }
+.fotos-previa figure { position: relative; margin: 0; display: grid; gap: .25rem; }
+.fotos-previa img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; border: 1px solid var(--linha); }
+.fotos-previa .capa { position: absolute; top: .35rem; left: .35rem; background: var(--laranja); color: #fff; font-size: .72rem; font-weight: 700; padding: .1rem .45rem; border-radius: 99px; }
